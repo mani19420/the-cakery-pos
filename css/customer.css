@@ -142,9 +142,12 @@ img { max-width: 100%; display: block; }
   overflow-x: auto;
   margin: 0 -20px 24px; padding: 0 20px 6px;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
-.category-tabs::-webkit-scrollbar { display: none; }
+.category-tabs::-webkit-scrollbar { height: 4px; }
+.category-tabs::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+.category-tabs::-webkit-scrollbar-track { background: transparent; }
 
 .cat-tab {
   flex-shrink: 0;
@@ -205,7 +208,17 @@ img { max-width: 100%; display: block; }
 .brand-emoji {
   font-size: 1.2rem;
   vertical-align: middle;
-  margin-right: 4px;
+  margin-right: 6px;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+}
+.brand-emoji img {
+  height: 28px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+  display: block;
 }
 .menu-card-popular {
   font-size: 0.68rem; font-weight: 600;

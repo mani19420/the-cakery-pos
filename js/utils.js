@@ -57,13 +57,35 @@ function generateOrderNumber() {
 }
 
 // ----------------------------------------------------------------
-// Cart Math
+// Cart Math (dual-tax aware)
 // ----------------------------------------------------------------
+// Returns { subtotal, tax, total, fbrTax, praTax, fbrBase, praBase, taxInfo }.
+// `tax` is the combined tax (fbr + pra) for backward compatibility with
+// existing callers that only use totals.subtotal / totals.tax / totals.total.
+// If `cart` items lack a `category`, the FBR/PRA split falls back to using
+// the FBR rate on everything (beverages detection needs category).
 function calcCartTotals(cart) {
+  let taxSettings = null;
+  try { taxSettings = (typeof getTaxSettings === 'function') ? getTaxSettings() : null; } catch (e) {}
+
+  if (taxSettings && typeof calcCartTotalsWithTax === 'function') {
+    const t = calcCartTotalsWithTax(cart, taxSettings);
+    return {
+      subtotal: t.subtotal,
+      tax: t.totalTax,
+      total: t.total,
+      fbrTax: t.fbrTax,
+      praTax: t.praTax,
+      fbrBase: t.fbrBase,
+      praBase: t.praBase,
+      taxInfo: taxSettings
+    };
+  }
+  // Fallback when menu-store.js is not loaded
   const subtotal = cart.reduce((s, i) => s + (i.price * i.qty), 0);
   const tax = Math.round(subtotal * CAKERY.TAX_RATE);
   const total = subtotal + tax;
-  return { subtotal, tax, total };
+  return { subtotal, tax, total, fbrTax: 0, praTax: 0, fbrBase: subtotal, praBase: 0 };
 }
 
 // ----------------------------------------------------------------
@@ -96,10 +118,16 @@ function _isDemoMode() { return !isSupabaseReady(); }
 
 // Insert a new order. Returns { success, order, error }
 async function insertOrder(orderPayload) {
+  // Ensure dual-tax fields exist (default to 0 if caller didn't pass them)
+  const enriched = {
+    ...orderPayload,
+    fbr_tax: orderPayload.fbr_tax != null ? Number(orderPayload.fbr_tax) : 0,
+    pra_tax: orderPayload.pra_tax != null ? Number(orderPayload.pra_tax) : 0
+  };
   if (_isDemoMode()) {
     const record = {
       id: 'demo-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-      ...orderPayload,
+      ...enriched,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -112,7 +140,7 @@ async function insertOrder(orderPayload) {
   try {
     const { data, error } = await supabaseClient
       .from('orders')
-      .insert([orderPayload])
+      .insert([enriched])
       .select()
       .single();
     if (error) throw error;

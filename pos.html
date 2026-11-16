@@ -10,7 +10,24 @@
 </head>
 <body>
 
-  <div class="app">
+  <!-- ===================== LOGIN SCREEN ===================== -->
+  <div id="posLoginScreen" class="pos-login-screen">
+    <div class="pos-login-card">
+      <div class="pos-login-logo">🧁</div>
+      <div class="pos-login-eyebrow">POS Dashboard</div>
+      <h1 class="pos-login-title">The Cakery</h1>
+      <p class="pos-login-sub">Staff login required. Enter your username and password.</p>
+      <form id="posLoginForm" autocomplete="off">
+        <input type="text" id="posLoginUser" placeholder="Username" autocomplete="username" required>
+        <input type="password" id="posLoginPass" placeholder="Password" autocomplete="current-password" required>
+        <button type="submit" class="pos-login-btn">Sign In</button>
+        <div id="posLoginError" class="pos-login-error"></div>
+      </form>
+      <p class="pos-login-hint">Accounts are created from the <a href="admin.html">Admin Panel → Users</a> tab.</p>
+    </div>
+  </div>
+
+  <div class="app" id="posApp" hidden>
     <!-- ===================== TOPBAR ===================== -->
     <header class="topbar">
       <div class="topbar-brand">
@@ -44,6 +61,12 @@
         <div id="connStatus" class="status-indicator">
           <span class="status-dot"></span>
           <span id="connText">Connecting…</span>
+        </div>
+        <div id="userBadge" class="user-badge" title="Logged in staff">
+          <span class="user-emoji">👤</span>
+          <span class="user-name" id="userBadgeName">—</span>
+          <span class="user-role" id="userBadgeRole">—</span>
+          <button id="posLogoutBtn" class="user-logout" title="Logout">⏻</button>
         </div>
       </div>
     </header>

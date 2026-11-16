@@ -26,14 +26,17 @@ Customers scan a QR code at their table → see the menu → place an order. The
 - 100+ items across 13 categories (breads, viennoiserie, patisserie, signature cakes, slices, chef's whisk, sandwiches, coffees, matcha, no-caffeine, on-the-rocks, tea, add-ons) — all parsed from your actual menus
 - Search, category filter, popular tags
 - Cart with quantity controls + special instructions
+- **Cart shows dual tax breakdown** — FBR Sales Tax (on food items) + PRA Punjab Tax (on beverages), each on its own line with the rate
 - Live order tracking (Received → Preparing → Ready → Served)
 - Toasts when status changes (real-time via Supabase)
 - Cart persists per table in localStorage
 
 ### POS Dashboard (`pos.html`)
+- **Staff login required** — username + password. Accounts created from Admin → Users tab. Session lasts 8 hours.
 - 3-column Kanban: **New Orders / Preparing / Ready**
 - **Pop-up alert** when a new order arrives (with sound 🔔)
-- Buttons: Accept / Reject / Mark Ready / Serve / View Bill
+- Buttons: Accept / Reject / Mark Ready / Serve / View Bill (role-gated: waiters see view-only; cashiers can't reject)
+- **Bill shows dual tax split** — FBR and PRA on separate lines, with the staff name who served the order
 - Print bill (clean print-friendly window)
 - Today's stats sidebar: total orders, revenue, average, active tables
 - Recently Served history (last 15)
@@ -215,13 +218,27 @@ A built-in admin panel where you can manage **everything** without touching code
 - **📊 Dashboard** — Total revenue, order count, average order, top item, 7-day revenue chart, top-selling items list, recent orders table. Filter by Today / 7 days / 30 days / All.
 - **🍴 Menu** — Full CRUD for menu items. Each item supports: name, category, price, original price (for sales), description, emoji, **real image upload** (stored as base64 in DB), popular flag, availability toggle (hide items temporarily), search + category + availability filters.
 - **🧾 Orders** — Browse all past orders with status filter, view items/total/timestamp, delete individual orders.
+- **👥 Users** *(NEW)* — Create POS staff accounts (username + password + role). Four roles:
+  - **Owner** — full access (admin + POS + delete orders)
+  - **Manager** — POS, accept/reject/serve, void orders
+  - **Cashier** — POS, take & serve orders, print bills
+  - **Waiter** — POS view-only (cannot change order status)
+- **🧮 Tax** *(NEW)* — Dual Pakistan tax system:
+  - **FBR** (Federal Board of Revenue) — applies to **main menu items** (food, bakery, desserts, sandwiches). Default 5%.
+  - **PRA** (Punjab Revenue Authority) — applies to **beverages only** (coffees, matcha, no-caffeine, on-the-rocks, tea). Default 16% (8% if paid by card/mobile wallet — set the rate you actually charge).
+  - Tick which categories count as "beverages" — PRA applies to those only.
+  - Toggle each tax on/off, edit labels and rates, switch between tax-inclusive and tax-exclusive pricing.
+  - Live preview shows exactly how a sample bill splits.
 - **🎨 Brand** — Edit brand name, tagline, logo emoji, accent color, and **upload a real logo image** (PNG/JPG, stored as base64). Changes appear instantly on customer menu and POS.
 
 ### First-time setup
-1. **Run the updated SQL schema** in Supabase SQL Editor (the `sql/schema.sql` in this zip). This creates two new tables: `menu_items` and `brand_settings`. Safe to re-run.
+1. **Run the updated SQL schema** in Supabase SQL Editor (the `sql/schema.sql` in this zip). This creates five tables: `orders`, `menu_items`, `brand_settings`, `staff_users` (new), `tax_settings` (new). Safe to re-run.
+   - **If you already ran the v1/v2/v3 schema before**, just run `sql/migration-v4.sql` instead — it adds only the new `staff_users` + `tax_settings` tables and the `fbr_tax`/`pra_tax` columns on `orders`, without touching your existing data.
 2. **Seed the menu** — open Admin → Menu tab → click **📥 Seed from local**. This copies all 130 default items from `js/menu-data.js` into your database so you can start editing them.
 3. **Upload your logo** — Admin → Brand tab → choose file → Upload → Save Brand.
-4. **Customize items** — Edit prices, add real photos, mark popular items, toggle availability.
+4. **Create POS users** — Admin → Users tab → **+ Add User**. Pick a role (cashier, manager, etc.) and set an initial password. After saving, that staff member can log in at `pos.html` with their username + password.
+5. **Confirm tax rates** — Admin → Tax tab. Defaults are FBR 5% on food + PRA 16% on beverages. Adjust to match your actual tax registration and Save.
+6. **Customize items** — Edit prices, add real photos, mark popular items, toggle availability.
 
 ### How images work
 - Item images and logo are stored as **base64 strings** directly in the Supabase `menu_items.image_url` and `brand_settings.logo_url` columns. No separate storage bucket needed.

@@ -3,13 +3,32 @@
    Receives orders in real time, shows popup, accept/reject, bill print
    =================================================================== */
 
+const POS_CONFIG = {
+  SESSION_KEY: 'cakery_pos_session',
+  SESSION_MS: 8 * 60 * 60 * 1000  // 8 hours
+};
+
 const POS_STATE = {
   orders: [],
   servedOrders: [],
   searchQuery: '',
   soundEnabled: true,
-  activeTab: 'stats'
+  activeTab: 'stats',
+  user: null   // { id, username, displayName, role } when logged in
 };
+
+// Role permissions: which actions each role can perform on the POS
+const ROLE_PERMS = {
+  owner:    { accept: true, reject: true, ready: true, serve: true, bill: true, delete: true },
+  manager:  { accept: true, reject: true, ready: true, serve: true, bill: true, delete: true },
+  cashier:  { accept: true, reject: false, ready: true, serve: true, bill: true, delete: false },
+  waiter:   { accept: false, reject: false, ready: false, serve: false, bill: true, delete: false }
+};
+function can(action) {
+  if (!POS_STATE.user) return false;
+  const perms = ROLE_PERMS[POS_STATE.user.role] || ROLE_PERMS.cashier;
+  return !!perms[action];
+}
 
 const POS_DOM = {
   searchInput: document.getElementById('searchInput'),
@@ -39,7 +58,16 @@ const POS_DOM = {
   sumRevenue:      document.getElementById('sumRevenue'),
   sumAvg:          document.getElementById('sumAvg'),
   sumTables:       document.getElementById('sumTables'),
-  historyList:     document.getElementById('historyList')
+  historyList:     document.getElementById('historyList'),
+  // Login
+  loginScreen: document.getElementById('posLoginScreen'),
+  posApp:      document.getElementById('posApp'),
+  loginForm:   document.getElementById('posLoginForm'),
+  loginError: document.getElementById('posLoginError'),
+  // User badge
+  userBadgeName: document.getElementById('userBadgeName'),
+  userBadgeRole: document.getElementById('userBadgeRole'),
+  logoutBtn: document.getElementById('posLogoutBtn')
 };
 
 // Track which order IDs we've already shown a popup for (so we don't repeat)
@@ -49,7 +77,101 @@ const SHOWN_POPUPS = new Set();
 // INIT
 // ----------------------------------------------------------------
 async function init() {
+  // POS login gate
+  if (!isPosLoggedIn()) {
+    showPosLogin();
+    return;
+  }
+  await bootPos();
+}
+
+function isPosLoggedIn() {
+  try {
+    const raw = localStorage.getItem(POS_CONFIG.SESSION_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!s || !s.ts || !s.user) return false;
+    if (Date.now() - s.ts > POS_CONFIG.SESSION_MS) return false;
+    POS_STATE.user = s.user;
+    return true;
+  } catch (e) { return false; }
+}
+
+function showPosLogin() {
+  POS_DOM.loginScreen.style.display = 'flex';
+  POS_DOM.posApp.hidden = true;
+  setTimeout(() => document.getElementById('posLoginUser').focus(), 50);
+}
+
+function showPosApp() {
+  POS_DOM.loginScreen.style.display = 'none';
+  POS_DOM.posApp.hidden = false;
+  // Update user badge
+  POS_DOM.userBadgeName.textContent = POS_STATE.user.displayName;
+  POS_DOM.userBadgeRole.textContent = POS_STATE.user.role;
+  POS_DOM.userBadgeRole.className = 'user-role role-' + POS_STATE.user.role;
+}
+
+function posLogout() {
+  localStorage.removeItem(POS_CONFIG.SESSION_KEY);
+  POS_STATE.user = null;
+  POS_STATE.orders = [];
+  POS_STATE.servedOrders = [];
+  location.reload();
+}
+
+// Handle login form submit
+POS_DOM.loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('posLoginUser').value;
+  const password = document.getElementById('posLoginPass').value;
+  POS_DOM.loginError.textContent = '';
+  if (!isSupabaseReady()) {
+    POS_DOM.loginError.textContent = 'Supabase not configured. Set it up first, then create users in the Admin Panel.';
+    return;
+  }
+  try {
+    const result = await verifyStaffLogin(username, password);
+    if (!result.success) {
+      // Friendly message when the staff_users table hasn't been created yet
+      if (result.error && (result.error.includes('staff_users') || result.error.includes('PGRST205') || result.error.includes('schema cache'))) {
+        POS_DOM.loginError.innerHTML = 'Staff login is not set up yet. Run <code>sql/migration-v4.sql</code> in your Supabase SQL Editor, then create a user in <a href="admin.html">Admin → Users</a>.';
+      } else {
+        POS_DOM.loginError.textContent = result.error || 'Login failed';
+      }
+      document.getElementById('posLoginPass').value = '';
+      document.getElementById('posLoginPass').focus();
+      return;
+    }
+    POS_STATE.user = result.user;
+    localStorage.setItem(POS_CONFIG.SESSION_KEY, JSON.stringify({
+      ts: Date.now(),
+      user: result.user
+    }));
+    showPosApp();
+    await bootPos();
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    if (msg.includes('staff_users') || msg.includes('PGRST205') || msg.includes('schema cache')) {
+      POS_DOM.loginError.innerHTML = 'Staff login is not set up yet. Run <code>sql/migration-v4.sql</code> in your Supabase SQL Editor, then create a user in <a href="admin.html">Admin → Users</a>.';
+    } else {
+      POS_DOM.loginError.textContent = 'Login error: ' + msg;
+    }
+  }
+});
+
+POS_DOM.logoutBtn.addEventListener('click', posLogout);
+
+// ----------------------------------------------------------------
+// BOOT (after login)
+// ----------------------------------------------------------------
+async function bootPos() {
   setupEventListeners();
+
+  // Load tax settings (for bill rendering)
+  if (typeof loadTaxSettings === 'function') {
+    try { await loadTaxSettings(); } catch (e) {}
+  }
 
   if (!isSupabaseReady()) {
     // DEMO MODE — no Supabase credentials: run on localStorage orders
@@ -274,21 +396,27 @@ function createOrderCardHTML(order) {
   const timeClass = minsAgo >= 15 ? 'danger' : (minsAgo >= 10 ? 'warn' : '');
 
   let actions = '';
+  // Role gating: waiters can only view/print bills. Cashier+ can accept/serve.
+  // Manager+ can reject. Owner+manager+cashier can mark ready.
   if (order.status === 'received') {
+    const acc = can('accept') ? `<button class="btn-action btn-accept" data-accept="${order.id}">Accept</button>` : '';
+    const rej = can('reject') ? `<button class="btn-action btn-reject" data-reject="${order.id}">Reject</button>` : '';
     actions = `
-      <button class="btn-action btn-reject" data-reject="${order.id}">Reject</button>
-      <button class="btn-action btn-accept" data-accept="${order.id}">Accept</button>
+      ${rej}
+      ${acc}
       <button class="btn-action btn-print" data-bill="${order.id}">Bill</button>
     `;
   } else if (order.status === 'accepted') {
+    const rdy = can('ready') ? `<button class="btn-action btn-ready" data-ready="${order.id}">Mark Ready</button>` : '';
     actions = `
       <button class="btn-action btn-print" data-bill="${order.id}">Bill</button>
-      <button class="btn-action btn-ready" data-ready="${order.id}">Mark Ready</button>
+      ${rdy}
     `;
   } else if (order.status === 'ready') {
+    const srv = can('serve') ? `<button class="btn-action btn-serve" data-serve="${order.id}">Serve</button>` : '';
     actions = `
       <button class="btn-action btn-print" data-bill="${order.id}">Bill</button>
-      <button class="btn-action btn-serve" data-serve="${order.id}">Serve</button>
+      ${srv}
     `;
   } else if (order.status === 'served') {
     actions = `<span class="served-badge">Served</span>`;
@@ -360,6 +488,25 @@ function showBill(order) {
     try { return JSON.parse(order.items || '[]'); } catch (e) { return []; }
   })();
 
+  // Tax settings (cached) — used for the bill labels and fallback split
+  let taxInfo = null;
+  try { taxInfo = (typeof getTaxSettings === 'function') ? getTaxSettings() : null; } catch (e) {}
+
+  // Use stored per-order tax values if present (saved at order time).
+  // Otherwise recompute from items for backward compat.
+  let fbrTax = Number(order.fbr_tax || 0);
+  let praTax = Number(order.pra_tax || 0);
+  if ((!fbrTax && !praTax) && taxInfo && typeof calcCartTotalsWithTax === 'function') {
+    const t = calcCartTotalsWithTax(items, taxInfo);
+    fbrTax = t.fbrTax;
+    praTax = t.praTax;
+  }
+
+  const fbrLabel = (taxInfo && taxInfo.fbrLabel) || 'FBR Sales Tax';
+  const praLabel = (taxInfo && taxInfo.praLabel) || 'PRA Punjab Tax';
+  const fbrRate = (taxInfo && taxInfo.fbrEnabled) ? taxInfo.fbrRatePct : 0;
+  const praRate = (taxInfo && taxInfo.praEnabled) ? taxInfo.praRatePct : 0;
+
   POS_DOM.billContent.innerHTML = `
     <div class="bill-header">
       <div class="bill-brand">The Cakery</div>
@@ -369,6 +516,7 @@ function showBill(order) {
         <div><span>Table:</span><strong>${order.table_number}</strong></div>
         <div><span>Date:</span><strong>${formatDateTime(order.created_at)}</strong></div>
         <div><span>Status:</span><strong style="text-transform:capitalize;">${order.status}</strong></div>
+        <div><span>Served by:</span><strong>${escapeHTML(POS_STATE.user ? POS_STATE.user.displayName : '—')}</strong></div>
       </div>
     </div>
     <table class="bill-items">
@@ -394,7 +542,8 @@ function showBill(order) {
     ${order.instructions ? `<div style="font-size:0.78rem;color:var(--text-muted);margin:8px 0;font-style:italic;">Note: ${escapeHTML(order.instructions)}</div>` : ''}
     <div class="bill-totals">
       <div class="row"><span>Subtotal</span><span>${formatPrice(order.subtotal)}</span></div>
-      <div class="row"><span>GST</span><span>${formatPrice(order.tax)}</span></div>
+      ${fbrTax > 0 ? `<div class="row"><span>${escapeHTML(fbrLabel)} (${fbrRate}%)</span><span>${formatPrice(fbrTax)}</span></div>` : ''}
+      ${praTax > 0 ? `<div class="row"><span>${escapeHTML(praLabel)} (${praRate}%)</span><span>${formatPrice(praTax)}</span></div>` : ''}
       <div class="row grand"><span>Grand Total</span><span>${formatPrice(order.total)}</span></div>
     </div>
     <div class="bill-footer">

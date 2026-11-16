@@ -572,6 +572,7 @@ code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; fon
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-row { grid-template-columns: 1fr; }
   .brand-grid { grid-template-columns: 1fr; }
+  .tax-grid { grid-template-columns: 1fr; }
   .panel-head { flex-direction: column; align-items: flex-start; }
   .range-pills { align-self: stretch; justify-content: space-between; }
   .tab-panel { padding: 20px 14px 50px; }
@@ -581,4 +582,216 @@ code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; fon
   .data-table { font-size: 12px; }
   .data-table th, .data-table td { padding: 9px 10px; }
   .topbar-tabs .tab { padding: 7px 10px; font-size: 12px; }
+  .cat-checkbox-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ===================== INFO BANNER ===================== */
+.info-banner {
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.info-banner code {
+  background: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.role-legend {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px;
+}
+.role-legend li {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  padding-left: 14px;
+  position: relative;
+}
+.role-legend li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+.role-legend b { color: var(--text); }
+
+/* ===================== TAX TAB ===================== */
+.tax-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.tax-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tax-card h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+.tax-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tax-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.tax-card input[type="text"],
+.tax-card input[type="number"] {
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  background: #fff;
+}
+.tax-card input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.tax-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.5;
+  margin: 0;
+}
+.tax-preview {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+  line-height: 1.7;
+}
+.tax-preview .tp-row {
+  display: flex;
+  justify-content: space-between;
+}
+.tax-preview .tp-row.grand {
+  border-top: 1px dashed var(--border);
+  margin-top: 6px;
+  padding-top: 6px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.cat-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.cat-checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+.cat-checkbox-grid label:hover { border-color: var(--accent); }
+.cat-checkbox-grid input { margin: 0; }
+
+/* ===================== TOGGLE SWITCH ===================== */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #ccc;
+  border-radius: 24px;
+  transition: 0.25s;
+}
+.switch .slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: 0.25s;
+}
+.switch input:checked + .slider { background: var(--accent); }
+.switch input:checked + .slider::before { transform: translateX(18px); }
+
+/* ===================== ROLE BADGES ===================== */
+.badge-role {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.badge-role.owner    { background: #fde68a; color: #78350f; }
+.badge-role.manager  { background: #bfdbfe; color: #1e3a8a; }
+.badge-role.cashier  { background: #d1fae5; color: #064e3b; }
+.badge-role.waiter   { background: #e9d5ff; color: #4c1d95; }
+
+.badge-user-active   { background: #d1fae5; color: #064e3b; }
+.badge-user-disabled { background: #fee2e2; color: #7f1d1d; }
+
+/* ===================== FORM HINT ===================== */
+.form-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.5;
+  margin: 0 0 8px 0;
+}
+
+/* ===================== CHECKBOX ROW ===================== */
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+}
+.checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
 }

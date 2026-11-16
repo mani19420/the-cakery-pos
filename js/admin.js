@@ -10,6 +10,8 @@ const A = {
   menu: [],
   brand: {},
   sales: null,
+  tax: null,
+  users: [],
   // Filters / search
   menuSearch: '',
   menuFilterCat: 'all',
@@ -20,9 +22,11 @@ const A = {
   editingItemId: null,
   pendingImage: '',   // base64 data URL for item image (when editing)
   pendingLogo: '',    // base64 data URL for logo
+  editingUserId: null,
   // Subscriptions
   unsubMenu: null,
-  unsubBrand: null
+  unsubBrand: null,
+  unsubTax: null
 };
 
 // Categories (matches the customer menu's category slugs)
@@ -169,18 +173,32 @@ async function bootAdmin() {
                        .catch(err => showToast('Image read failed: ' + err.message, 'error'));
   });
 
+  // Wire up user modal
+  document.getElementById('addUserBtn').addEventListener('click', () => openUserModal(null));
+  document.querySelectorAll('#userModal [data-close]').forEach(el => el.addEventListener('click', closeUserModal));
+  document.getElementById('userForm').addEventListener('submit', handleUserFormSubmit);
+
+  // Wire up tax form
+  document.getElementById('saveTaxBtn').addEventListener('click', saveTax);
+  ['fbrEnabled', 'fbrRate', 'fbrLabel', 'praEnabled', 'praRate', 'praLabel', 'pricesInclusive'].forEach(id => {
+    document.getElementById(id).addEventListener('input', renderTaxPreview);
+    document.getElementById(id).addEventListener('change', renderTaxPreview);
+  });
+
   // Populate category dropdowns
   populateCategoryDropdowns();
 
   // Status + initial loads
   updateDBStatus();
-  await Promise.all([loadBrandIntoForm(), refreshMenu()]);
+  await Promise.all([loadBrandIntoForm(), refreshMenu(), loadTaxIntoForm()]);
   await loadDashboard();
   await loadAllOrders();
+  await loadUsers();
 
   // Realtime subscriptions
   A.unsubMenu = subscribeMenu(() => { refreshMenu(false); });
   A.unsubBrand = subscribeBrand(() => { loadBrandIntoForm(); });
+  A.unsubTax = subscribeTax(() => { loadTaxIntoForm(); });
 }
 
 function switchTab(name) {
@@ -188,6 +206,8 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (name === 'dashboard') loadDashboard();
   if (name === 'orders') loadAllOrders();
+  if (name === 'users') loadUsers();
+  if (name === 'tax') loadTaxIntoForm();
 }
 
 function populateCategoryDropdowns() {
@@ -603,15 +623,298 @@ function renderAllOrdersTable() {
 }
 
 // ----------------------------------------------------------------
+// USERS TAB
+// ----------------------------------------------------------------
+async function loadUsers() {
+  const tb = document.querySelector('#usersTable tbody');
+  if (!tb) return;
+  if (!isSupabaseReady()) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty-row">Supabase not configured. Configure it in <code>js/supabase-config.js</code> to manage users.</td></tr>';
+    return;
+  }
+  tb.innerHTML = '<tr><td colspan="6" class="empty-row">Loading…</td></tr>';
+  try {
+    A.users = await loadStaffUsers();
+    renderUsersTable();
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    if (msg.includes('staff_users') || msg.includes('PGRST205') || msg.includes('schema cache')) {
+      tb.innerHTML = `<tr><td colspan="6" class="empty-row">
+        <b>The <code>staff_users</code> table is missing from your database.</b><br>
+        Run the latest <code>sql/schema.sql</code> in your Supabase SQL Editor to create it
+        (plus the <code>tax_settings</code> table and the <code>fbr_tax</code>/<code>pra_tax</code> columns on orders).
+      </td></tr>`;
+    } else {
+      showToast('Users load failed: ' + msg, 'error');
+    }
+  }
+}
+
+function renderUsersTable() {
+  const tb = document.querySelector('#usersTable tbody');
+  if (!A.users.length) {
+    tb.innerHTML = `<tr><td colspan="6" class="empty-row">
+      No staff users yet. Click <b>+ Add User</b> to create the first account.
+      <br><br>Tip: after creating a user, they can log in at <code>pos.html</code>.
+    </td></tr>`;
+    return;
+  }
+  tb.innerHTML = A.users.map(u => {
+    const roleClass = (u.role || 'cashier').toLowerCase();
+    return `<tr>
+      <td><b>${escapeHTML(u.username)}</b></td>
+      <td>${escapeHTML(u.displayName)}</td>
+      <td><span class="badge-role ${roleClass}">${escapeHTML(u.role)}</span></td>
+      <td>${u.active
+        ? '<span class="badge badge-user-active">Active</span>'
+        : '<span class="badge badge-user-disabled">Disabled</span>'}</td>
+      <td>${u.lastLoginAt ? formatDateTime(u.lastLoginAt) : '—'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn" data-edit-user="${u.id}">✏️ Edit</button>
+          <button class="row-btn danger" data-del-user="${u.id}">🗑️ Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  tb.querySelectorAll('[data-edit-user]').forEach(b => b.addEventListener('click', () => {
+    const u = A.users.find(x => x.id === Number(b.dataset.editUser));
+    if (u) openUserModal(u);
+  }));
+  tb.querySelectorAll('[data-del-user]').forEach(b => b.addEventListener('click', () => {
+    const u = A.users.find(x => x.id === Number(b.dataset.delUser));
+    if (u) confirmDeleteUser(u);
+  }));
+}
+
+function openUserModal(user) {
+  A.editingUserId = user ? user.id : null;
+  const f = document.getElementById('userForm');
+  f.reset();
+  document.getElementById('userModalEyebrow').textContent = user ? 'Edit User' : 'New User';
+  document.getElementById('userModalTitle').textContent = user ? 'Edit POS User' : 'Add POS User';
+  document.getElementById('userUsername').value = user ? user.username : '';
+  document.getElementById('userUsername').disabled = !!user;
+  document.getElementById('userDisplayName').value = user ? user.displayName : '';
+  document.getElementById('userRole').value = user ? user.role : 'cashier';
+  document.getElementById('userActive').value = user ? (user.active ? '1' : '0') : '1';
+  // Password is optional on edit; required on new.
+  const pwdField = document.getElementById('userPassword');
+  pwdField.value = '';
+  pwdField.required = !user;
+  const hint = document.getElementById('userPasswordHint');
+  if (user) {
+    hint.textContent = 'Leave blank to keep the existing password.';
+  } else {
+    hint.textContent = 'Set an initial password. You can change it later by editing the user.';
+  }
+  document.getElementById('userModal').classList.add('open');
+  setTimeout(() => document.getElementById(user ? 'userDisplayName' : 'userUsername').focus(), 50);
+}
+
+function closeUserModal() {
+  document.getElementById('userModal').classList.remove('open');
+  A.editingUserId = null;
+}
+
+async function handleUserFormSubmit(e) {
+  e.preventDefault();
+  const username = document.getElementById('userUsername').value.trim().toLowerCase();
+  const displayName = document.getElementById('userDisplayName').value.trim();
+  const role = document.getElementById('userRole').value;
+  const active = document.getElementById('userActive').value === '1';
+  const password = document.getElementById('userPassword').value;
+
+  if (!username || !displayName) {
+    showToast('Username and display name are required', 'warning');
+    return;
+  }
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+    showToast('Username must be 3-20 lowercase letters, digits or _', 'warning');
+    return;
+  }
+  if (!A.editingUserId && password.length < 4) {
+    showToast('Password must be at least 4 characters', 'warning');
+    return;
+  }
+  // Uniqueness check (client-side; DB also enforces unique)
+  const dup = A.users.find(u => u.username === username && u.id !== A.editingUserId);
+  if (dup) {
+    showToast('A user with this username already exists', 'error');
+    return;
+  }
+
+  try {
+    await saveStaffUser({
+      id: A.editingUserId || null,
+      username, displayName, role, active,
+      password: password || undefined
+    });
+    showToast(A.editingUserId ? '✓ User updated' : '✓ User created', 'success');
+    closeUserModal();
+    await loadUsers();
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+function confirmDeleteUser(user) {
+  if (!confirm(`Delete user "${user.username}"? They will no longer be able to log in to POS.`)) return;
+  deleteStaffUser(user.id).then(() => {
+    showToast('✓ User deleted', 'success');
+    loadUsers();
+  }).catch(err => showToast('Delete failed: ' + err.message, 'error'));
+}
+
+// ----------------------------------------------------------------
+// TAX TAB
+// ----------------------------------------------------------------
+async function loadTaxIntoForm() {
+  try {
+    A.tax = await loadTaxSettings();
+  } catch (e) { A.tax = getTaxSettings(); }
+  if (!document.getElementById('fbrRate')) return; // tab not in DOM
+  document.getElementById('fbrEnabled').checked = A.tax.fbrEnabled;
+  document.getElementById('fbrRate').value = A.tax.fbrRatePct;
+  document.getElementById('fbrLabel').value = A.tax.fbrLabel;
+  document.getElementById('praEnabled').checked = A.tax.praEnabled;
+  document.getElementById('praRate').value = A.tax.praRatePct;
+  document.getElementById('praLabel').value = A.tax.praLabel;
+  document.getElementById('pricesInclusive').checked = A.tax.pricesInclusive;
+  renderBeverageCategoryCheckboxes(A.tax.beverageCategories || []);
+  renderTaxPreview();
+}
+
+function renderBeverageCategoryCheckboxes(selected) {
+  const sel = new Set(selected || []);
+  const grid = document.getElementById('bevCatGrid');
+  // Use the real CATEGORIES from menu-data.js — their slugs match what
+  // items actually have. ADMIN_CATS uses different slugs ('coffees' vs
+  // 'coffee'), so it must NOT be used here.
+  const cats = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).filter(c => c.id !== 'all');
+  grid.innerHTML = cats.map(c => `
+    <label>
+      <input type="checkbox" data-bev-cat="${c.id}" ${sel.has(c.id) ? 'checked' : ''}>
+      ${c.icon || '🍽️'} ${escapeHTML(c.name)}
+    </label>
+  `).join('');
+  grid.querySelectorAll('[data-bev-cat]').forEach(cb => cb.addEventListener('change', renderTaxPreview));
+}
+
+function getSelectedBeverageCategories() {
+  return Array.from(document.querySelectorAll('[data-bev-cat]:checked')).map(cb => cb.dataset.bevCat);
+}
+
+function renderTaxPreview() {
+  const el = document.getElementById('taxPreview');
+  if (!el) return;
+  // Gather current form values
+  const fbrEnabled = document.getElementById('fbrEnabled').checked;
+  const fbrRate = parseFloat(document.getElementById('fbrRate').value) || 0;
+  const fbrLabel = document.getElementById('fbrLabel').value || 'FBR';
+  const praEnabled = document.getElementById('praEnabled').checked;
+  const praRate = parseFloat(document.getElementById('praRate').value) || 0;
+  const praLabel = document.getElementById('praLabel').value || 'PRA';
+  const inclusive = document.getElementById('pricesInclusive').checked;
+  const bevCats = getSelectedBeverageCategories();
+
+  // Demo cart: 1 food item Rs 500 + 1 beverage Rs 690
+  const demoCart = [
+    { price: 500, qty: 1, category: 'breads', name: 'Sample Bread' },
+    { price: 690, qty: 1, category: 'coffee', name: 'Sample Coffee' }
+  ];
+  const tax = {
+    fbrEnabled, fbrRatePct: fbrRate, fbrLabel,
+    praEnabled, praRatePct: praRate, praLabel,
+    beverageCategories: bevCats,
+    pricesInclusive: inclusive
+  };
+  const t = calcCartTotalsWithTax(demoCart, tax);
+  el.innerHTML = `
+    <div class="tp-row"><span>Food item (Rs 500)</span><span>→ ${fbrEnabled ? fbrRate + '% ' + escapeHTML(fbrLabel) : 'no FBR'}</span></div>
+    <div class="tp-row"><span>Beverage (Rs 690)</span><span>→ ${praEnabled ? praRate + '% ' + escapeHTML(praLabel) : 'no PRA'}</span></div>
+    <div class="tp-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;"><span>Subtotal</span><span>Rs ${t.subtotal.toLocaleString('en-PK')}</span></div>
+    ${fbrEnabled ? `<div class="tp-row"><span>${escapeHTML(fbrLabel)} (${fbrRate}%)</span><span>Rs ${t.fbrTax.toLocaleString('en-PK')}</span></div>` : ''}
+    ${praEnabled ? `<div class="tp-row"><span>${escapeHTML(praLabel)} (${praRate}%)</span><span>Rs ${t.praTax.toLocaleString('en-PK')}</span></div>` : ''}
+    <div class="tp-row grand"><span>Grand Total</span><span>Rs ${t.total.toLocaleString('en-PK')}</span></div>
+  `;
+}
+
+async function saveTax() {
+  const payload = {
+    fbrEnabled: document.getElementById('fbrEnabled').checked,
+    fbrRatePct: parseFloat(document.getElementById('fbrRate').value) || 0,
+    fbrLabel: document.getElementById('fbrLabel').value.trim() || 'FBR Sales Tax',
+    praEnabled: document.getElementById('praEnabled').checked,
+    praRatePct: parseFloat(document.getElementById('praRate').value) || 0,
+    praLabel: document.getElementById('praLabel').value.trim() || 'PRA Punjab Tax',
+    beverageCategories: getSelectedBeverageCategories(),
+    pricesInclusive: document.getElementById('pricesInclusive').checked
+  };
+  try {
+    await saveTaxSettings(payload);
+    showToast('✓ Tax settings saved', 'success');
+    await loadTaxIntoForm();
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+// ----------------------------------------------------------------
 // HELPERS
 // ----------------------------------------------------------------
+// Read a file as a (compressed) data URL.
+// Large images are auto-resized to max 600x600 and JPEG-compressed so the
+// base64 string fits comfortably inside Supabase's REST payload limit.
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     if (!file) return reject(new Error('No file'));
-    if (file.size > 1.2 * 1024 * 1024) return reject(new Error('File too large (max 1.2 MB)'));
+    if (file.size > 8 * 1024 * 1024) return reject(new Error('File too large (max 8 MB)'));
+
     const r = new FileReader();
-    r.onload = () => resolve(r.result);
     r.onerror = () => reject(new Error('Read failed'));
+
+    // For non-image files or tiny images, just return the raw data URL.
+    if (!file.type || !file.type.startsWith('image/')) {
+      r.onload = () => resolve(r.result);
+      r.readAsDataURL(file);
+      return;
+    }
+
+    r.onload = () => {
+      const raw = r.result;
+      // If already small enough (<300KB), return as-is.
+      if (raw.length < 300 * 1024) { resolve(raw); return; }
+
+      // Otherwise load into an image and re-draw on a canvas at reduced size.
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 600;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          const scale = Math.min(MAX / width, MAX / height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          // JPEG at 0.82 quality is ~5-10x smaller than the original photo.
+          const compressed = canvas.toDataURL('image/jpeg', 0.82);
+          resolve(compressed);
+        } catch (e) {
+          // CORS-tainted canvas (shouldn't happen for uploaded files) — fall back.
+          resolve(raw);
+        }
+      };
+      img.onerror = () => resolve(raw);  // If image fails to load, fall back to raw.
+      img.src = raw;
+    };
+
     r.readAsDataURL(file);
   });
 }

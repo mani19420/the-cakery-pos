@@ -19,6 +19,8 @@ create table if not exists public.orders (
   items           jsonb not null default '[]'::jsonb,
   subtotal        numeric not null default 0,
   tax             numeric not null default 0,
+  fbr_tax         numeric not null default 0,    -- FBR portion (food/bakery)
+  pra_tax         numeric not null default 0,    -- PRA portion (beverages)
   total           numeric not null default 0,
   instructions    text default '',
   customer_note   text default '',
@@ -28,6 +30,18 @@ create table if not exists public.orders (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
+
+-- Add the new columns if the table already existed from an older schema
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'orders' and column_name = 'fbr_tax') then
+    alter table public.orders add column fbr_tax numeric not null default 0;
+  end if;
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'orders' and column_name = 'pra_tax') then
+    alter table public.orders add column pra_tax numeric not null default 0;
+  end if;
+end $$;
 
 create index if not exists idx_orders_status       on public.orders(status);
 create index if not exists idx_orders_created_at    on public.orders(created_at desc);
@@ -98,6 +112,73 @@ values (1, 'The Cakery', 'Order From Your Table', '🧁')
 on conflict (id) do nothing;
 
 -- =====================================================================
+-- 4. STAFF_USERS TABLE  (NEW — POS staff logins created from Admin Panel)
+-- =====================================================================
+-- Each row is one POS staff account (username + password_hash + role).
+-- Roles:
+--   owner   — full access (everything: admin panel + pos + delete orders)
+--   manager — POS + can accept/reject/serve, can refund void orders
+--   cashier — POS only (take orders, mark served, print bills)
+--   waiter  — POS view-only (cannot accept/reject)
+create table if not exists public.staff_users (
+  id              bigserial primary key,
+  username        text not null unique,
+  display_name    text not null,
+  password_hash   text not null,              -- sha256(password + salt)
+  password_salt   text not null,
+  role             text not null default 'cashier'
+                   check (role in ('owner','manager','cashier','waiter')),
+  active          boolean not null default true,
+  last_login_at   timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create index if not exists idx_staff_users_username on public.staff_users(username);
+
+drop trigger if exists trg_staff_updated on public.staff_users;
+create trigger trg_staff_updated
+  before update on public.staff_users
+  for each row execute function public.handle_updated_at();
+
+-- =====================================================================
+-- 5. TAX_SETTINGS TABLE  (NEW — dual tax system: FBR + PRA)
+-- =====================================================================
+-- Single-row table (id = 1). The app always reads row id = 1.
+-- Two taxes:
+--   FBR — Federal Board of Revenue, applied to MAIN MENU items (food/bakery)
+--   PRA — Punjab Revenue Authority, applied to BEVERAGES only
+-- Each tax has: rate_pct (e.g. 5 means 5%), enabled flag, label, and which
+-- category group it applies to ('food' or 'beverages').
+create table if not exists public.tax_settings (
+  id                   integer primary key default 1 check (id = 1),
+  -- FBR (food / bakery / main menu)
+  fbr_enabled          boolean not null default true,
+  fbr_rate_pct         numeric not null default 5 check (fbr_rate_pct >= 0 and fbr_rate_pct < 100),
+  fbr_label            text not null default 'FBR Sales Tax',
+  -- PRA (beverages only)
+  pra_enabled          boolean not null default true,
+  pra_rate_pct         numeric not null default 16 check (pra_rate_pct >= 0 and pra_rate_pct < 100),
+  pra_label            text not null default 'PRA Punjab Tax',
+  -- Which category slugs count as 'beverages' (PRA applies to these only)
+  -- Stored as a JSON array of category slugs.
+  beverage_categories  jsonb not null default '["coffee","matcha","ncaffeine","onrocks","tea"]'::jsonb,
+  -- Whether prices shown on menu are tax-inclusive or tax-exclusive
+  prices_inclusive     boolean not null default false,
+  updated_at           timestamptz not null default now()
+);
+
+-- Seed the singleton row
+insert into public.tax_settings (id)
+values (1)
+on conflict (id) do nothing;
+
+drop trigger if exists trg_tax_updated on public.tax_settings;
+create trigger trg_tax_updated
+  before update on public.tax_settings
+  for each row execute function public.handle_updated_at();
+
+-- =====================================================================
 -- 4. ROW LEVEL SECURITY
 -- =====================================================================
 -- The app uses the ANON key, so we need policies to allow public access.
@@ -107,6 +188,8 @@ on conflict (id) do nothing;
 alter table public.orders enable row level security;
 alter table public.menu_items enable row level security;
 alter table public.brand_settings enable row level security;
+alter table public.staff_users enable row level security;
+alter table public.tax_settings enable row level security;
 
 -- ---- ORDERS ----
 drop policy if exists "Anyone can insert orders" on public.orders;
@@ -174,17 +257,61 @@ create policy "Admin can update brand"
   using (true)
   with check (true);
 
+-- ---- STAFF_USERS ----
+-- Reads: anyone can read username + role (needed for POS login to validate).
+-- We DO NOT expose password_hash via this select — see the limited view below.
+drop policy if exists "Anyone can read staff users" on public.staff_users;
+create policy "Anyone can read staff users"
+  on public.staff_users for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "Admin can insert staff users" on public.staff_users;
+create policy "Admin can insert staff users"
+  on public.staff_users for insert
+  to anon, authenticated
+  with check (true);
+
+drop policy if exists "Admin can update staff users" on public.staff_users;
+create policy "Admin can update staff users"
+  on public.staff_users for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Admin can delete staff users" on public.staff_users;
+create policy "Admin can delete staff users"
+  on public.staff_users for delete
+  to anon, authenticated
+  using (true);
+
+-- ---- TAX_SETTINGS ----
+drop policy if exists "Anyone can read tax settings" on public.tax_settings;
+create policy "Anyone can read tax settings"
+  on public.tax_settings for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "Admin can update tax settings" on public.tax_settings;
+create policy "Admin can update tax settings"
+  on public.tax_settings for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
 -- =====================================================================
 -- 5. REALTIME
 -- =====================================================================
--- Enable realtime on all three tables so customers/POS/admin see live
+-- Enable realtime on all five tables so customers/POS/admin see live
 -- updates when something changes.
 alter publication supabase_realtime add table public.orders;
 alter publication supabase_realtime add table public.menu_items;
 alter publication supabase_realtime add table public.brand_settings;
+alter publication supabase_realtime add table public.staff_users;
+alter publication supabase_realtime add table public.tax_settings;
 -- Note: if a table was already in the publication, the line raises a
 -- harmless error. Run the line below instead if that happens:
--- alter publication supabase_realtime set table public.orders, public.menu_items, public.brand_settings;
+-- alter publication supabase_realtime set table public.orders, public.menu_items, public.brand_settings, public.staff_users, public.tax_settings;
 
 -- =====================================================================
 -- DONE. Your database is ready for the Admin Panel.

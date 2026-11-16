@@ -41,6 +41,8 @@
         <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
         <button class="tab" data-tab="menu">🍴 Menu</button>
         <button class="tab" data-tab="orders">🧾 Orders</button>
+        <button class="tab" data-tab="users">👥 Users</button>
+        <button class="tab" data-tab="tax">🧮 Tax</button>
         <button class="tab" data-tab="brand">🎨 Brand</button>
       </nav>
       <div class="topbar-actions">
@@ -212,6 +214,122 @@
       </div>
     </section>
 
+    <!-- ===================== USERS TAB ===================== -->
+    <section class="tab-panel" id="tab-users">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Staff Access</div>
+          <h2 class="panel-title">POS Users</h2>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-primary" id="addUserBtn">+ Add User</button>
+        </div>
+      </div>
+
+      <div class="info-banner">
+        Create staff accounts so cashiers &amp; managers can log in to <code>pos.html</code> with their own username &amp; password. Each role has a different level of access.
+        <ul class="role-legend">
+          <li><b>Owner</b> — full access (admin + POS + delete)</li>
+          <li><b>Manager</b> — POS, accept/reject/serve, void orders</li>
+          <li><b>Cashier</b> — POS, take &amp; serve orders, print bills</li>
+          <li><b>Waiter</b> — POS view-only (no status changes)</li>
+        </ul>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table" id="usersTable">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Display Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th style="width:160px">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6" class="empty-row">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== TAX TAB ===================== -->
+    <section class="tab-panel" id="tab-tax">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Dual Tax System</div>
+          <h2 class="panel-title">Tax Settings</h2>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-primary" id="saveTaxBtn">Save Tax Settings</button>
+        </div>
+      </div>
+
+      <div class="info-banner">
+        Pakistan tax setup: <b>FBR</b> (Federal Board of Revenue) applies to your <b>main menu items</b> (food, bakery, desserts). <b>PRA</b> (Punjab Revenue Authority) applies to <b>beverages only</b> — coffee, matcha, shakes, juices, tea. Both rates are saved here and used on every customer order and POS bill.
+      </div>
+
+      <div class="tax-grid">
+        <div class="tax-card">
+          <div class="tax-card-head">
+            <h3>FBR — Main Menu (Food/Bakery)</h3>
+            <label class="switch">
+              <input type="checkbox" id="fbrEnabled" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <label>Tax Label
+            <input type="text" id="fbrLabel" maxlength="40" value="FBR Sales Tax">
+          </label>
+          <label>Rate (%)
+            <input type="number" id="fbrRate" min="0" max="50" step="0.5" value="5">
+          </label>
+          <p class="tax-hint">Default 5% — applies to breads, viennoiserie, patisserie, cakes, slices, chef's whisk, sandwiches, add-ons.</p>
+        </div>
+
+        <div class="tax-card">
+          <div class="tax-card-head">
+            <h3>PRA Punjab — Beverages</h3>
+            <label class="switch">
+              <input type="checkbox" id="praEnabled" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <label>Tax Label
+            <input type="text" id="praLabel" maxlength="40" value="PRA Punjab Tax">
+          </label>
+          <label>Rate (%)
+            <input type="number" id="praRate" min="0" max="50" step="0.5" value="16">
+          </label>
+          <p class="tax-hint">Default 16% (PRA standard on restaurant services). 8% if paid by card/mobile wallet — set the rate you actually charge.</p>
+        </div>
+      </div>
+
+      <div class="tax-grid" style="margin-top:16px;">
+        <div class="tax-card" style="grid-column:1/-1;">
+          <h3>Beverage Categories</h3>
+          <p class="tax-hint">Tick which categories count as "beverages" — PRA applies to items in these categories only. Everything else gets FBR.</p>
+          <div class="cat-checkbox-grid" id="bevCatGrid"></div>
+        </div>
+      </div>
+
+      <div class="tax-grid" style="margin-top:16px;">
+        <div class="tax-card">
+          <h3>Price Display</h3>
+          <label class="checkbox">
+            <input type="checkbox" id="pricesInclusive"> Prices on menu are <b>tax-inclusive</b> (tax already inside the price)
+          </label>
+          <p class="tax-hint">If unchecked (default), prices are tax-exclusive — taxes are added on top at checkout.</p>
+        </div>
+        <div class="tax-card">
+          <h3>Live Preview</h3>
+          <div class="tax-preview" id="taxPreview"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== BRAND TAB ===================== -->
     <section class="tab-panel" id="tab-brand">
       <div class="panel-head">
@@ -308,6 +426,53 @@
         <div class="modal-actions">
           <button type="button" class="btn-ghost" data-close>Cancel</button>
           <button type="submit" class="btn-primary">Save Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== USER MODAL ===================== -->
+  <div class="modal" id="userModal">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-eyebrow" id="userModalEyebrow">New User</div>
+        <h3 class="modal-title" id="userModalTitle">Add POS User</h3>
+        <button class="modal-x" data-close>×</button>
+      </div>
+      <form id="userForm" class="item-form">
+        <div class="form-row">
+          <label>Username (lowercase, no spaces)
+            <input type="text" id="userUsername" required pattern="[a-z0-9_]{3,20}" maxlength="20">
+          </label>
+          <label>Display Name
+            <input type="text" id="userDisplayName" required maxlength="40">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Role
+            <select id="userRole" required>
+              <option value="cashier">Cashier (POS only)</option>
+              <option value="waiter">Waiter (view-only)</option>
+              <option value="manager">Manager (POS + void orders)</option>
+              <option value="owner">Owner (full access)</option>
+            </select>
+          </label>
+          <label>Status
+            <select id="userActive" required>
+              <option value="1">Active</option>
+              <option value="0">Disabled</option>
+            </select>
+          </label>
+        </div>
+        <label id="userPasswordField">
+          Password (min 4 chars)
+          <input type="text" id="userPassword" minlength="4" maxlength="40" autocomplete="new-password">
+        </label>
+        <p class="form-hint" id="userPasswordHint" style="margin:-6px 0 12px;">Set an initial password. You can change it later by editing the user.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" data-close>Cancel</button>
+          <button type="submit" class="btn-primary">Save User</button>
         </div>
       </form>
     </div>

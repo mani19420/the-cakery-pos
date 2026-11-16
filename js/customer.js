@@ -24,6 +24,12 @@ const DOM = {
   cartSummary:  document.getElementById('cartSummary'),
   subtotal:     document.getElementById('subtotal'),
   tax:          document.getElementById('tax'),
+  fbrRow:       document.getElementById('fbrRow'),
+  praRow:       document.getElementById('praRow'),
+  fbrLabel:     document.getElementById('fbrLabel'),
+  praLabel:     document.getElementById('praLabel'),
+  fbrTax:       document.getElementById('fbrTax'),
+  praTax:       document.getElementById('praTax'),
   total:        document.getElementById('total'),
   instructions: document.getElementById('instructions'),
   placeOrderBtn:document.getElementById('placeOrderBtn'),
@@ -100,8 +106,8 @@ async function startApp() {
     STATE.orders = saved.orders || [];
   }
 
-  // 2b. Load menu + brand from Supabase (or cache/fallback)
-  await Promise.all([loadMenu(), loadBrand()]);
+  // 2b. Load menu + brand + tax from Supabase (or cache/fallback)
+  await Promise.all([loadMenu(), loadBrand(), loadTaxSettings()]);
   applyBrandToUI();
 
   // 3. Render UI
@@ -132,24 +138,28 @@ async function startApp() {
     }, 1500);
   }
 
-  // 9. Live menu + brand updates (admin changes appear instantly)
+  // 9. Live menu + brand + tax updates (admin changes appear instantly)
   subscribeMenu(() => renderMenu());
   subscribeBrand(() => { applyBrandToUI(); renderMenu(); });
+  subscribeTax(() => updateCart());
 }
 
 // Apply brand settings to the UI (name, logo, tagline)
 function applyBrandToUI() {
   const b = getBrand();
   document.title = (b.brandName || 'The Cakery') + ' — ' + (b.tagline || 'Order From Your Table');
-  // Brand name in header
-  document.querySelectorAll('[data-brand-name]').forEach(el => { el.textContent = b.brandName || 'The Cakery'; });
-  // Logo / emoji
+  // Logo / emoji + brand name (if logo is a real image, it usually contains
+  // the brand wordmark, so we hide the duplicate text label).
   document.querySelectorAll('[data-brand-logo]').forEach(el => {
     if (b.logoUrl) {
-      el.innerHTML = '<img src="' + escapeHTML(b.logoUrl) + '" alt="logo" style="height:1.4em;width:1.4em;object-fit:contain;vertical-align:middle">';
+      el.innerHTML = '<img src="' + escapeHTML(b.logoUrl) + '" alt="logo">';
     } else {
       el.textContent = b.logoEmoji || '🧁';
     }
+  });
+  document.querySelectorAll('[data-brand-name]').forEach(el => {
+    el.style.display = b.logoUrl ? 'none' : '';
+    el.textContent = b.brandName || 'The Cakery';
   });
   // Tagline / subtitle
   document.querySelectorAll('[data-brand-tagline]').forEach(el => { el.textContent = b.tagline || ''; });
@@ -246,9 +256,28 @@ function updateCart() {
     DOM.cartCount.classList.toggle('hidden', totalItems === 0);
   }
   const totals = calcCartTotals(STATE.cart);
+  const info = totals.taxInfo || (typeof getTaxSettings === 'function' ? getTaxSettings() : null);
+
   if (DOM.subtotal) DOM.subtotal.textContent = formatPrice(totals.subtotal);
-  if (DOM.tax)      DOM.tax.textContent      = formatPrice(totals.tax);
   if (DOM.total)    DOM.total.textContent    = formatPrice(totals.total);
+
+  // Dual tax rows (FBR + PRA)
+  if (DOM.fbrRow && DOM.fbrTax && DOM.fbrLabel) {
+    const showFbr = info && info.fbrEnabled && totals.fbrTax > 0;
+    DOM.fbrRow.style.display = showFbr ? 'flex' : 'none';
+    if (showFbr) {
+      DOM.fbrLabel.textContent = (info.fbrLabel || 'FBR Sales Tax') + ' (' + info.fbrRatePct + '%)';
+      DOM.fbrTax.textContent = formatPrice(totals.fbrTax);
+    }
+  }
+  if (DOM.praRow && DOM.praTax && DOM.praLabel) {
+    const showPra = info && info.praEnabled && totals.praTax > 0;
+    DOM.praRow.style.display = showPra ? 'flex' : 'none';
+    if (showPra) {
+      DOM.praLabel.textContent = (info.praLabel || 'PRA Punjab Tax') + ' (' + info.praRatePct + '%)';
+      DOM.praTax.textContent = formatPrice(totals.praTax);
+    }
+  }
 
   const isEmpty = STATE.cart.length === 0;
   if (DOM.cartEmpty)  DOM.cartEmpty.style.display  = isEmpty ? 'flex' : 'none';
@@ -308,10 +337,13 @@ async function placeOrder() {
     order_number: orderNumber,
     table_number: STATE.table,
     items: STATE.cart.map(i => ({
-      id: i.id, name: i.name, price: i.price, qty: i.qty, emoji: i.emoji
+      id: i.id, name: i.name, price: i.price, qty: i.qty, emoji: i.emoji,
+      category: i.category || ''
     })),
     subtotal: totals.subtotal,
     tax: totals.tax,
+    fbr_tax: totals.fbrTax || 0,
+    pra_tax: totals.praTax || 0,
     total: totals.total,
     instructions: instructions,
     status: 'received',
@@ -333,6 +365,8 @@ async function placeOrder() {
       items: result.order.items,
       subtotal: result.order.subtotal,
       tax: result.order.tax,
+      fbr_tax: result.order.fbr_tax || 0,
+      pra_tax: result.order.pra_tax || 0,
       total: result.order.total,
       instructions: result.order.instructions,
       status: result.order.status,
