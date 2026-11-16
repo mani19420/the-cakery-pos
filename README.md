@@ -23,20 +23,24 @@ Customers scan a QR code at their table → see the menu → place an order. The
 
 ### Customer (`index.html`)
 - Scan QR → menu auto-binds to their table number
+- **Order type picker on first screen** — Dine In (enter table) or Take Away (no table needed)
 - 100+ items across 13 categories (breads, viennoiserie, patisserie, signature cakes, slices, chef's whisk, sandwiches, coffees, matcha, no-caffeine, on-the-rocks, tea, add-ons) — all parsed from your actual menus
 - Search, category filter, popular tags
 - Cart with quantity controls + special instructions
-- **Cart shows dual tax breakdown** — FBR Sales Tax (on food items) + PRA Punjab Tax (on beverages), each on its own line with the rate
+- **Cart shows dual tax breakdown** — FBR Sales Tax (18% on food items, same for cash and card) + PRA Punjab Tax (16% on Cash / 8% on Card, on beverages only). The PRA rate and total **recompute live** when the customer switches between Cash and Card at checkout.
+- **Order Type + Payment Method selectors** at checkout — a 2×2 grid: 🛍️ Take Away / 🍽️ Dine In, and 💵 Cash / 💳 Card. Both must be chosen before Place Order.
 - Live order tracking (Received → Preparing → Ready → Served)
 - Toasts when status changes (real-time via Supabase)
-- Cart persists per table in localStorage
+- Cart + order type + payment choice persists per table in localStorage
 
 ### POS Dashboard (`pos.html`)
 - **Staff login required** — username + password. Accounts created from Admin → Users tab. Session lasts 8 hours.
 - 3-column Kanban: **New Orders / Preparing / Ready**
 - **Pop-up alert** when a new order arrives (with sound 🔔)
-- Buttons: Accept / Reject / Mark Ready / Serve / View Bill (role-gated: waiters see view-only; cashiers can't reject)
-- **Bill shows dual tax split** — FBR and PRA on separate lines, with the staff name who served the order
+- Each order card shows the **order type badge** (🍽️ Dine In / 🛍️ Take Away) and **payment method badge** (💵 Cash / 💳 Card) at a glance
+- Buttons: Accept / Reject / Mark Ready / Serve / Edit / View Bill (role-gated: waiters see view-only; cashiers can't reject)
+- **✏️ Edit Order** — open any active order to change items: increase/decrease quantity, remove an item, or add a new item from the searchable menu. Tax totals (FBR + PRA) recompute live. Save writes the changes back to Supabase. (Owner / Manager / Cashier can edit; Waiter cannot.)
+- **Bill shows order type, table, payment method, dual tax split** (FBR and PRA on separate lines), and the staff name who served the order
 - Print bill (clean print-friendly window)
 - Today's stats sidebar: total orders, revenue, average, active tables
 - Recently Served history (last 15)
@@ -170,7 +174,12 @@ the-cakery-pos/
 ## 💰 Pricing & Tax
 
 - All prices are in **PKR** as in your menu PDFs.
-- GST is set to **0%** (your menu says "Exclusive of GST"). To change it, edit `CAKERY.TAX_RATE` in `js/utils.js`.
+- **Dual Pakistan tax system** (configured in Admin → Tax):
+  - **FBR Sales Tax (18%)** — Federal Board of Revenue, applied to **food & bakery items**. Same rate for cash and card payments.
+  - **PRA Punjab Tax (16% cash / 8% card)** — Punjab Revenue Authority, applied to **beverages only** (coffee, matcha, no-caffeine, on-the-rocks, tea). The rate depends on the customer's payment method.
+  - The customer cart total **recomputes automatically** when switching between Cash and Card — FBR stays at 18%, PRA switches between 16% and 8%.
+  - Which categories count as "beverages" is configurable (tick the beverage categories in Admin → Tax).
+- GST is set to **0%** (your menu says "Exclusive of GST"). The old single-rate tax fallback in `js/utils.js` (`CAKERY.TAX_RATE`) is only used when the menu-store module is not loaded.
 - Currency symbol is `Rs`. To change it, edit `CAKERY.CURRENCY` in the same file.
 
 ---
@@ -223,21 +232,22 @@ A built-in admin panel where you can manage **everything** without touching code
   - **Manager** — POS, accept/reject/serve, void orders
   - **Cashier** — POS, take & serve orders, print bills
   - **Waiter** — POS view-only (cannot change order status)
-- **🧮 Tax** *(NEW)* — Dual Pakistan tax system:
-  - **FBR** (Federal Board of Revenue) — applies to **main menu items** (food, bakery, desserts, sandwiches). Default 5%.
-  - **PRA** (Punjab Revenue Authority) — applies to **beverages only** (coffees, matcha, no-caffeine, on-the-rocks, tea). Default 16% (8% if paid by card/mobile wallet — set the rate you actually charge).
+- **🧮 Tax** — Dual Pakistan tax system with **payment-method-aware PRA**:
+  - **FBR** (Federal Board of Revenue) — applies to **main menu items** (food, bakery, desserts, sandwiches). **Default 18%**, same rate for cash and card.
+  - **PRA** (Punjab Revenue Authority) — applies to **beverages only** (coffees, matcha, no-caffeine, on-the-rocks, tea). **Rate depends on payment method: 16% on Cash, 8% on Card / online** (Punjab restaurant services).
+  - The customer cart total **recomputes automatically** when the customer switches between Cash and Card at checkout — FBR stays the same, PRA switches between 16% and 8%.
   - Tick which categories count as "beverages" — PRA applies to those only.
-  - Toggle each tax on/off, edit labels and rates, switch between tax-inclusive and tax-exclusive pricing.
-  - Live preview shows exactly how a sample bill splits.
+  - Toggle each tax on/off, edit labels and rates (separate Cash / Card rates for PRA), switch between tax-inclusive and tax-exclusive pricing.
+  - Live preview shows BOTH scenarios side-by-side — a Cash order and a Card/Online order — so you can see the difference before saving.
 - **🎨 Brand** — Edit brand name, tagline, logo emoji, accent color, and **upload a real logo image** (PNG/JPG, stored as base64). Changes appear instantly on customer menu and POS.
 
 ### First-time setup
-1. **Run the updated SQL schema** in Supabase SQL Editor (the `sql/schema.sql` in this zip). This creates five tables: `orders`, `menu_items`, `brand_settings`, `staff_users` (new), `tax_settings` (new). Safe to re-run.
-   - **If you already ran the v1/v2/v3 schema before**, just run `sql/migration-v4.sql` instead — it adds only the new `staff_users` + `tax_settings` tables and the `fbr_tax`/`pra_tax` columns on `orders`, without touching your existing data.
+1. **Run the updated SQL schema** in Supabase SQL Editor (the `sql/schema.sql` in this zip). This creates five tables: `orders`, `menu_items`, `brand_settings`, `staff_users`, `tax_settings`. Safe to re-run.
+   - **If you already ran an earlier schema (v1–v5)**, run the migrations in order: `sql/migration-v4.sql` (staff + tax tables, fbr/pra columns), then `sql/migration-v5.sql` (order_type + payment_method columns), then `sql/migration-v6.sql` (the new `pra_rate_cash_pct` + `pra_rate_card_pct` columns and FBR bump to 18%). Each one is safe to re-run and never touches your existing orders.
 2. **Seed the menu** — open Admin → Menu tab → click **📥 Seed from local**. This copies all 130 default items from `js/menu-data.js` into your database so you can start editing them.
 3. **Upload your logo** — Admin → Brand tab → choose file → Upload → Save Brand.
 4. **Create POS users** — Admin → Users tab → **+ Add User**. Pick a role (cashier, manager, etc.) and set an initial password. After saving, that staff member can log in at `pos.html` with their username + password.
-5. **Confirm tax rates** — Admin → Tax tab. Defaults are FBR 5% on food + PRA 16% on beverages. Adjust to match your actual tax registration and Save.
+5. **Confirm tax rates** — Admin → Tax tab. Defaults are **FBR 18% on food** (cash or card) + **PRA 16% on beverages paid by Cash / 8% paid by Card**. Adjust to match your actual tax registration and Save.
 6. **Customize items** — Edit prices, add real photos, mark popular items, toggle availability.
 
 ### How images work

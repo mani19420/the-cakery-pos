@@ -175,13 +175,54 @@
     </div>
   </div>
 
+  <!-- ===================== EDIT ORDER MODAL ===================== -->
+  <div class="modal" id="editOrderModal">
+    <div class="modal-backdrop" data-edit-close></div>
+    <div class="modal-card edit-card">
+      <div class="edit-head">
+        <div>
+          <div class="edit-eyebrow">Edit Order</div>
+          <h3 class="edit-title" id="editOrderTitle">#TC-00000</h3>
+        </div>
+        <button class="modal-x" data-edit-close>×</button>
+      </div>
+
+      <div class="edit-meta" id="editOrderMeta"></div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Current Items</div>
+        <div id="editItemsList" class="edit-items-list"></div>
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">
+          Add Item from Menu
+          <input type="search" id="editMenuSearch" placeholder="Search items..." class="edit-menu-search">
+        </div>
+        <div id="editMenuList" class="edit-menu-list"></div>
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Instructions</div>
+        <textarea id="editInstructions" class="edit-instructions" placeholder="Special instructions..."></textarea>
+      </div>
+
+      <div class="edit-totals" id="editTotals"></div>
+
+      <div class="edit-actions">
+        <button class="btn-edit-cancel" data-edit-close>Cancel</button>
+        <button class="btn-edit-save" id="editSaveBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Notification sound (Web Audio API fallback used in JS, but keep a hidden audio) -->
   <audio id="notifSound" preload="auto"></audio>
 
-  <script src="js/supabase-config.js"></script>
-  <script src="js/menu-data.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/menu-store.js"></script>
-  <script src="js/pos.js"></script>
+  <script src="js/supabase-config.js?v=6"></script>
+  <script src="js/menu-data.js?v=6"></script>
+  <script src="js/utils.js?v=6fresh2026"></script>
+  <script src="js/menu-store.js?v=6fresh2026"></script>
+  <script src="js/pos.js?v=6fresh2026"></script>
 </body>
 </html>

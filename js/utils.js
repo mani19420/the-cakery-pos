@@ -59,17 +59,20 @@ function generateOrderNumber() {
 // ----------------------------------------------------------------
 // Cart Math (dual-tax aware)
 // ----------------------------------------------------------------
-// Returns { subtotal, tax, total, fbrTax, praTax, fbrBase, praBase, taxInfo }.
+// Returns { subtotal, tax, total, fbrTax, praTax, fbrBase, praBase, taxInfo, praRatePct }.
 // `tax` is the combined tax (fbr + pra) for backward compatibility with
 // existing callers that only use totals.subtotal / totals.tax / totals.total.
+// `paymentMethod` ('cash' | 'card') selects the PRA rate (cash 16% / card 8%).
+// Defaults to 'cash' if not passed — keeps old callers working.
 // If `cart` items lack a `category`, the FBR/PRA split falls back to using
 // the FBR rate on everything (beverages detection needs category).
-function calcCartTotals(cart) {
+function calcCartTotals(cart, paymentMethod) {
   let taxSettings = null;
   try { taxSettings = (typeof getTaxSettings === 'function') ? getTaxSettings() : null; } catch (e) {}
+  const pm = paymentMethod || 'cash';
 
   if (taxSettings && typeof calcCartTotalsWithTax === 'function') {
-    const t = calcCartTotalsWithTax(cart, taxSettings);
+    const t = calcCartTotalsWithTax(cart, taxSettings, pm);
     return {
       subtotal: t.subtotal,
       tax: t.totalTax,
@@ -78,6 +81,7 @@ function calcCartTotals(cart) {
       praTax: t.praTax,
       fbrBase: t.fbrBase,
       praBase: t.praBase,
+      praRatePct: t.praRatePct,
       taxInfo: taxSettings
     };
   }
@@ -85,7 +89,7 @@ function calcCartTotals(cart) {
   const subtotal = cart.reduce((s, i) => s + (i.price * i.qty), 0);
   const tax = Math.round(subtotal * CAKERY.TAX_RATE);
   const total = subtotal + tax;
-  return { subtotal, tax, total, fbrTax: 0, praTax: 0, fbrBase: subtotal, praBase: 0 };
+  return { subtotal, tax, total, fbrTax: 0, praTax: 0, fbrBase: subtotal, praBase: 0, praRatePct: 0 };
 }
 
 // ----------------------------------------------------------------

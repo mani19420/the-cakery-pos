@@ -180,9 +180,12 @@ async function bootAdmin() {
 
   // Wire up tax form
   document.getElementById('saveTaxBtn').addEventListener('click', saveTax);
-  ['fbrEnabled', 'fbrRate', 'fbrLabel', 'praEnabled', 'praRate', 'praLabel', 'pricesInclusive'].forEach(id => {
-    document.getElementById(id).addEventListener('input', renderTaxPreview);
-    document.getElementById(id).addEventListener('change', renderTaxPreview);
+  ['fbrEnabled', 'fbrRate', 'fbrLabel', 'praEnabled', 'praRateCash', 'praRateCard', 'praLabel', 'pricesInclusive'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', renderTaxPreview);
+      el.addEventListener('change', renderTaxPreview);
+    }
   });
 
   // Populate category dropdowns
@@ -779,7 +782,8 @@ async function loadTaxIntoForm() {
   document.getElementById('fbrRate').value = A.tax.fbrRatePct;
   document.getElementById('fbrLabel').value = A.tax.fbrLabel;
   document.getElementById('praEnabled').checked = A.tax.praEnabled;
-  document.getElementById('praRate').value = A.tax.praRatePct;
+  document.getElementById('praRateCash').value = (A.tax.praRateCashPct != null ? A.tax.praRateCashPct : A.tax.praRatePct);
+  document.getElementById('praRateCard').value = (A.tax.praRateCardPct != null ? A.tax.praRateCardPct : A.tax.praRatePct);
   document.getElementById('praLabel').value = A.tax.praLabel;
   document.getElementById('pricesInclusive').checked = A.tax.pricesInclusive;
   renderBeverageCategoryCheckboxes(A.tax.beverageCategories || []);
@@ -814,7 +818,8 @@ function renderTaxPreview() {
   const fbrRate = parseFloat(document.getElementById('fbrRate').value) || 0;
   const fbrLabel = document.getElementById('fbrLabel').value || 'FBR';
   const praEnabled = document.getElementById('praEnabled').checked;
-  const praRate = parseFloat(document.getElementById('praRate').value) || 0;
+  const praRateCash = parseFloat(document.getElementById('praRateCash').value) || 0;
+  const praRateCard = parseFloat(document.getElementById('praRateCard').value) || 0;
   const praLabel = document.getElementById('praLabel').value || 'PRA';
   const inclusive = document.getElementById('pricesInclusive').checked;
   const bevCats = getSelectedBeverageCategories();
@@ -826,28 +831,42 @@ function renderTaxPreview() {
   ];
   const tax = {
     fbrEnabled, fbrRatePct: fbrRate, fbrLabel,
-    praEnabled, praRatePct: praRate, praLabel,
+    praEnabled, praRateCashPct: praRateCash, praRateCardPct: praRateCard, praLabel,
     beverageCategories: bevCats,
     pricesInclusive: inclusive
   };
-  const t = calcCartTotalsWithTax(demoCart, tax);
+  // Compute totals for both payment methods so the owner sees the difference.
+  const tCash = calcCartTotalsWithTax(demoCart, tax, 'cash');
+  const tCard = calcCartTotalsWithTax(demoCart, tax, 'card');
+
   el.innerHTML = `
     <div class="tp-row"><span>Food item (Rs 500)</span><span>→ ${fbrEnabled ? fbrRate + '% ' + escapeHTML(fbrLabel) : 'no FBR'}</span></div>
-    <div class="tp-row"><span>Beverage (Rs 690)</span><span>→ ${praEnabled ? praRate + '% ' + escapeHTML(praLabel) : 'no PRA'}</span></div>
-    <div class="tp-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;"><span>Subtotal</span><span>Rs ${t.subtotal.toLocaleString('en-PK')}</span></div>
-    ${fbrEnabled ? `<div class="tp-row"><span>${escapeHTML(fbrLabel)} (${fbrRate}%)</span><span>Rs ${t.fbrTax.toLocaleString('en-PK')}</span></div>` : ''}
-    ${praEnabled ? `<div class="tp-row"><span>${escapeHTML(praLabel)} (${praRate}%)</span><span>Rs ${t.praTax.toLocaleString('en-PK')}</span></div>` : ''}
-    <div class="tp-row grand"><span>Grand Total</span><span>Rs ${t.total.toLocaleString('en-PK')}</span></div>
+    <div class="tp-row"><span>Beverage (Rs 690)</span><span>→ ${praEnabled ? praRateCash + '% / ' + praRateCard + '% ' + escapeHTML(praLabel) : 'no PRA'}</span></div>
+    <div class="tp-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;font-weight:600;"><span>CASH ORDER</span><span></span></div>
+    <div class="tp-row"><span>Subtotal</span><span>Rs ${tCash.subtotal.toLocaleString('en-PK')}</span></div>
+    ${fbrEnabled ? `<div class="tp-row"><span>${escapeHTML(fbrLabel)} (${fbrRate}%)</span><span>Rs ${tCash.fbrTax.toLocaleString('en-PK')}</span></div>` : ''}
+    ${praEnabled ? `<div class="tp-row"><span>${escapeHTML(praLabel)} (${praRateCash}% · Cash)</span><span>Rs ${tCash.praTax.toLocaleString('en-PK')}</span></div>` : ''}
+    <div class="tp-row grand"><span>Grand Total (Cash)</span><span>Rs ${tCash.total.toLocaleString('en-PK')}</span></div>
+    <div class="tp-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;font-weight:600;"><span>CARD / ONLINE ORDER</span><span></span></div>
+    <div class="tp-row"><span>Subtotal</span><span>Rs ${tCard.subtotal.toLocaleString('en-PK')}</span></div>
+    ${fbrEnabled ? `<div class="tp-row"><span>${escapeHTML(fbrLabel)} (${fbrRate}%)</span><span>Rs ${tCard.fbrTax.toLocaleString('en-PK')}</span></div>` : ''}
+    ${praEnabled ? `<div class="tp-row"><span>${escapeHTML(praLabel)} (${praRateCard}% · Card)</span><span>Rs ${tCard.praTax.toLocaleString('en-PK')}</span></div>` : ''}
+    <div class="tp-row grand"><span>Grand Total (Card)</span><span>Rs ${tCard.total.toLocaleString('en-PK')}</span></div>
   `;
 }
 
 async function saveTax() {
+  const praRateCash = parseFloat(document.getElementById('praRateCash').value) || 0;
+  const praRateCard = parseFloat(document.getElementById('praRateCard').value) || 0;
   const payload = {
     fbrEnabled: document.getElementById('fbrEnabled').checked,
     fbrRatePct: parseFloat(document.getElementById('fbrRate').value) || 0,
     fbrLabel: document.getElementById('fbrLabel').value.trim() || 'FBR Sales Tax',
     praEnabled: document.getElementById('praEnabled').checked,
-    praRatePct: parseFloat(document.getElementById('praRate').value) || 0,
+    // Keep legacy field in sync with the cash rate for backward compatibility.
+    praRatePct: praRateCash,
+    praRateCashPct: praRateCash,
+    praRateCardPct: praRateCard,
     praLabel: document.getElementById('praLabel').value.trim() || 'PRA Punjab Tax',
     beverageCategories: getSelectedBeverageCategories(),
     pricesInclusive: document.getElementById('pricesInclusive').checked

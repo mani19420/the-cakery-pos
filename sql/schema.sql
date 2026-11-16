@@ -15,7 +15,11 @@
 create table if not exists public.orders (
   id              bigserial primary key,
   order_number    text not null,
-  table_number    integer not null,
+  table_number    integer not null default 0,   -- 0 when Take Away (no table)
+  order_type      text not null default 'dine_in'
+                  check (order_type in ('dine_in','takeaway')),
+  payment_method  text not null default 'cash'
+                  check (payment_method in ('cash','card')),
   items           jsonb not null default '[]'::jsonb,
   subtotal        numeric not null default 0,
   tax             numeric not null default 0,
@@ -41,6 +45,20 @@ do $$ begin
                  where table_schema = 'public' and table_name = 'orders' and column_name = 'pra_tax') then
     alter table public.orders add column pra_tax numeric not null default 0;
   end if;
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'orders' and column_name = 'order_type') then
+    alter table public.orders add column order_type text not null default 'dine_in';
+    alter table public.orders add constraint orders_order_type_chk
+      check (order_type in ('dine_in','takeaway'));
+  end if;
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'orders' and column_name = 'payment_method') then
+    alter table public.orders add column payment_method text not null default 'cash';
+    alter table public.orders add constraint orders_payment_method_chk
+      check (payment_method in ('cash','card'));
+  end if;
+  -- Relax the old NOT NULL constraint on table_number if it was created
+  -- without a default in an earlier schema (so Take Away orders can use 0).
 end $$;
 
 create index if not exists idx_orders_status       on public.orders(status);
@@ -152,13 +170,17 @@ create trigger trg_staff_updated
 -- category group it applies to ('food' or 'beverages').
 create table if not exists public.tax_settings (
   id                   integer primary key default 1 check (id = 1),
-  -- FBR (food / bakery / main menu)
+  -- FBR (food / bakery / main menu) — same rate for cash and card
   fbr_enabled          boolean not null default true,
-  fbr_rate_pct         numeric not null default 5 check (fbr_rate_pct >= 0 and fbr_rate_pct < 100),
+  fbr_rate_pct         numeric not null default 18 check (fbr_rate_pct >= 0 and fbr_rate_pct < 100),
   fbr_label            text not null default 'FBR Sales Tax',
-  -- PRA (beverages only)
+  -- PRA (beverages only) — rate depends on payment method:
+  --   cash  → pra_rate_cash_pct  (16%)
+  --   card  → pra_rate_card_pct  (8%)
   pra_enabled          boolean not null default true,
   pra_rate_pct         numeric not null default 16 check (pra_rate_pct >= 0 and pra_rate_pct < 100),
+  pra_rate_cash_pct    numeric not null default 16 check (pra_rate_cash_pct >= 0 and pra_rate_cash_pct < 100),
+  pra_rate_card_pct    numeric not null default 8  check (pra_rate_card_pct >= 0 and pra_rate_card_pct < 100),
   pra_label            text not null default 'PRA Punjab Tax',
   -- Which category slugs count as 'beverages' (PRA applies to these only)
   -- Stored as a JSON array of category slugs.
@@ -167,6 +189,26 @@ create table if not exists public.tax_settings (
   prices_inclusive     boolean not null default false,
   updated_at           timestamptz not null default now()
 );
+
+-- Backfill the two new PRA columns + bump FBR default to 18 if the table
+-- already existed from an older schema (v4 or earlier).
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'tax_settings' and column_name = 'pra_rate_cash_pct') then
+    alter table public.tax_settings add column pra_rate_cash_pct numeric not null default 16
+      check (pra_rate_cash_pct >= 0 and pra_rate_cash_pct < 100);
+  end if;
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'tax_settings' and column_name = 'pra_rate_card_pct') then
+    alter table public.tax_settings add column pra_rate_card_pct numeric not null default 8
+      check (pra_rate_card_pct >= 0 and pra_rate_card_pct < 100);
+  end if;
+  -- Backfill the new columns from the old pra_rate_pct if they are still
+  -- at their old default (so a customised PRA rate isn't lost).
+  update public.tax_settings
+     set pra_rate_cash_pct = coalesce(pra_rate_pct, 16)
+   where pra_rate_cash_pct = 16 and pra_rate_pct is not null and pra_rate_pct <> 16;
+end $$;
 
 -- Seed the singleton row
 insert into public.tax_settings (id)

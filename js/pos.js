@@ -19,10 +19,10 @@ const POS_STATE = {
 
 // Role permissions: which actions each role can perform on the POS
 const ROLE_PERMS = {
-  owner:    { accept: true, reject: true, ready: true, serve: true, bill: true, delete: true },
-  manager:  { accept: true, reject: true, ready: true, serve: true, bill: true, delete: true },
-  cashier:  { accept: true, reject: false, ready: true, serve: true, bill: true, delete: false },
-  waiter:   { accept: false, reject: false, ready: false, serve: false, bill: true, delete: false }
+  owner:    { accept: true, reject: true, ready: true, serve: true, bill: true, delete: true, edit: true },
+  manager:  { accept: true, reject: true, ready: true, serve: true, bill: true, delete: true, edit: true },
+  cashier:  { accept: true, reject: false, ready: true, serve: true, bill: true, delete: false, edit: true },
+  waiter:   { accept: false, reject: false, ready: false, serve: false, bill: true, delete: false, edit: false }
 };
 function can(action) {
   if (!POS_STATE.user) return false;
@@ -67,7 +67,17 @@ const POS_DOM = {
   // User badge
   userBadgeName: document.getElementById('userBadgeName'),
   userBadgeRole: document.getElementById('userBadgeRole'),
-  logoutBtn: document.getElementById('posLogoutBtn')
+  logoutBtn: document.getElementById('posLogoutBtn'),
+  // Edit modal
+  editModal:        document.getElementById('editOrderModal'),
+  editOrderTitle:   document.getElementById('editOrderTitle'),
+  editOrderMeta:    document.getElementById('editOrderMeta'),
+  editItemsList:    document.getElementById('editItemsList'),
+  editMenuList:     document.getElementById('editMenuList'),
+  editMenuSearch:   document.getElementById('editMenuSearch'),
+  editInstructions: document.getElementById('editInstructions'),
+  editTotals:       document.getElementById('editTotals'),
+  editSaveBtn:      document.getElementById('editSaveBtn')
 };
 
 // Track which order IDs we've already shown a popup for (so we don't repeat)
@@ -167,10 +177,15 @@ POS_DOM.logoutBtn.addEventListener('click', posLogout);
 // ----------------------------------------------------------------
 async function bootPos() {
   setupEventListeners();
+  setupEditModalListeners();
 
-  // Load tax settings (for bill rendering)
+  // Load tax settings (for bill + edit totals rendering)
   if (typeof loadTaxSettings === 'function') {
     try { await loadTaxSettings(); } catch (e) {}
+  }
+  // Load menu (needed by the Edit Order modal to add items)
+  if (typeof loadMenu === 'function') {
+    try { await loadMenu(); } catch (e) {}
   }
 
   if (!isSupabaseReady()) {
@@ -396,25 +411,32 @@ function createOrderCardHTML(order) {
   const timeClass = minsAgo >= 15 ? 'danger' : (minsAgo >= 10 ? 'warn' : '');
 
   let actions = '';
-  // Role gating: waiters can only view/print bills. Cashier+ can accept/serve.
+  // Role gating: waiters can only view/print bills. Cashier+ can accept/serve/edit.
   // Manager+ can reject. Owner+manager+cashier can mark ready.
+  // Edit button is available for any active (non-served) order if role allows.
+  const editBtn = (can('edit') && order.status !== 'served' && order.status !== 'rejected')
+    ? `<button class="btn-action btn-edit" data-edit="${order.id}">✏️ Edit</button>`
+    : '';
   if (order.status === 'received') {
     const acc = can('accept') ? `<button class="btn-action btn-accept" data-accept="${order.id}">Accept</button>` : '';
     const rej = can('reject') ? `<button class="btn-action btn-reject" data-reject="${order.id}">Reject</button>` : '';
     actions = `
       ${rej}
       ${acc}
+      ${editBtn}
       <button class="btn-action btn-print" data-bill="${order.id}">Bill</button>
     `;
   } else if (order.status === 'accepted') {
     const rdy = can('ready') ? `<button class="btn-action btn-ready" data-ready="${order.id}">Mark Ready</button>` : '';
     actions = `
+      ${editBtn}
       <button class="btn-action btn-print" data-bill="${order.id}">Bill</button>
       ${rdy}
     `;
   } else if (order.status === 'ready') {
     const srv = can('serve') ? `<button class="btn-action btn-serve" data-serve="${order.id}">Serve</button>` : '';
     actions = `
+      ${editBtn}
       <button class="btn-action btn-print" data-bill="${order.id}">Bill</button>
       ${srv}
     `;
@@ -426,10 +448,11 @@ function createOrderCardHTML(order) {
     <article class="order-card ${order.status === 'received' ? 'new' : ''}" data-id="${order.id}">
       <div class="order-card-head">
         <span class="order-num">#${escapeHTML(order.order_number)}</span>
-        <span class="table-tag">Table ${order.table_number}</span>
+        <span class="table-tag">${order.order_type === 'takeaway' ? '🛍️ Take Away' : (order.table_number && order.table_number !== 0 ? '🍽️ Table ' + order.table_number : '🍽️ Dine In')}</span>
       </div>
       <div class="order-time ${timeClass}">
         <i data-lucide="clock" style="width:12px;height:12px;"></i> ${time}
+        <span class="pay-tag">${order.payment_method === 'card' ? '💳 Card' : '💵 Cash'}</span>
       </div>
       <div class="order-items">
         ${items.map(i => `
@@ -492,20 +515,33 @@ function showBill(order) {
   let taxInfo = null;
   try { taxInfo = (typeof getTaxSettings === 'function') ? getTaxSettings() : null; } catch (e) {}
 
+  // Determine the order's payment method (default to cash for legacy orders).
+  const orderPaymentMethod = order.payment_method === 'card' ? 'card' : 'cash';
+  const pmLabel = orderPaymentMethod === 'card' ? 'Card' : 'Cash';
+
   // Use stored per-order tax values if present (saved at order time).
-  // Otherwise recompute from items for backward compat.
+  // Otherwise recompute from items + the order's payment method for backward compat.
   let fbrTax = Number(order.fbr_tax || 0);
   let praTax = Number(order.pra_tax || 0);
+  let praRate = 0;
+  if (taxInfo && taxInfo.praEnabled) {
+    // Resolve the PRA rate that applies to THIS order's payment method.
+    if (orderPaymentMethod === 'card') {
+      praRate = Number(taxInfo.praRateCardPct != null ? taxInfo.praRateCardPct : taxInfo.praRatePct) || 0;
+    } else {
+      praRate = Number(taxInfo.praRateCashPct != null ? taxInfo.praRateCashPct : taxInfo.praRatePct) || 0;
+    }
+  }
   if ((!fbrTax && !praTax) && taxInfo && typeof calcCartTotalsWithTax === 'function') {
-    const t = calcCartTotalsWithTax(items, taxInfo);
+    const t = calcCartTotalsWithTax(items, taxInfo, orderPaymentMethod);
     fbrTax = t.fbrTax;
     praTax = t.praTax;
+    if (t.praRatePct != null) praRate = t.praRatePct;
   }
 
   const fbrLabel = (taxInfo && taxInfo.fbrLabel) || 'FBR Sales Tax';
   const praLabel = (taxInfo && taxInfo.praLabel) || 'PRA Punjab Tax';
   const fbrRate = (taxInfo && taxInfo.fbrEnabled) ? taxInfo.fbrRatePct : 0;
-  const praRate = (taxInfo && taxInfo.praEnabled) ? taxInfo.praRatePct : 0;
 
   POS_DOM.billContent.innerHTML = `
     <div class="bill-header">
@@ -513,7 +549,9 @@ function showBill(order) {
       <div class="bill-tag">Patisserie · Boulangerie · Cafè</div>
       <div class="bill-meta">
         <div><span>Order:</span><strong>#${escapeHTML(order.order_number)}</strong></div>
-        <div><span>Table:</span><strong>${order.table_number}</strong></div>
+        <div><span>Type:</span><strong>${order.order_type === 'takeaway' ? 'Take Away' : 'Dine In'}</strong></div>
+        <div><span>Table:</span><strong>${(order.order_type === 'takeaway' || !order.table_number || order.table_number === 0) ? '—' : order.table_number}</strong></div>
+        <div><span>Payment:</span><strong style="text-transform:capitalize;">${order.payment_method === 'card' ? 'Card' : 'Cash'}</strong></div>
         <div><span>Date:</span><strong>${formatDateTime(order.created_at)}</strong></div>
         <div><span>Status:</span><strong style="text-transform:capitalize;">${order.status}</strong></div>
         <div><span>Served by:</span><strong>${escapeHTML(POS_STATE.user ? POS_STATE.user.displayName : '—')}</strong></div>
@@ -543,7 +581,7 @@ function showBill(order) {
     <div class="bill-totals">
       <div class="row"><span>Subtotal</span><span>${formatPrice(order.subtotal)}</span></div>
       ${fbrTax > 0 ? `<div class="row"><span>${escapeHTML(fbrLabel)} (${fbrRate}%)</span><span>${formatPrice(fbrTax)}</span></div>` : ''}
-      ${praTax > 0 ? `<div class="row"><span>${escapeHTML(praLabel)} (${praRate}%)</span><span>${formatPrice(praTax)}</span></div>` : ''}
+      ${praTax > 0 ? `<div class="row"><span>${escapeHTML(praLabel)} (${praRate}% · ${pmLabel})</span><span>${formatPrice(praTax)}</span></div>` : ''}
       <div class="row grand"><span>Grand Total</span><span>${formatPrice(order.total)}</span></div>
     </div>
     <div class="bill-footer">
@@ -586,6 +624,242 @@ function printBill(order) {
   w.document.close();
   w.focus();
   setTimeout(() => { w.print(); }, 400);
+}
+
+// ----------------------------------------------------------------
+// EDIT ORDER  (POS staff can edit an active order's items)
+// ----------------------------------------------------------------
+// Working copy of the order being edited: { id, items, instructions, order_type, payment_method, table_number }
+let EDIT_STATE = null;
+let EDIT_MENU_SEARCH = '';
+
+function openEditModal(order) {
+  // Defensive copy of items so we don't mutate the live order until Save.
+  const items = Array.isArray(order.items) ? order.items : (() => {
+    try { return JSON.parse(order.items || '[]'); } catch (e) { return []; }
+  })();
+  EDIT_STATE = {
+    id: order.id,
+    order_number: order.order_number,
+    table_number: order.table_number,
+    order_type: order.order_type || 'dine_in',
+    payment_method: order.payment_method || 'cash',
+    instructions: order.instructions || '',
+    items: items.map(i => ({
+      id: i.id || '',
+      name: i.name || '',
+      price: Number(i.price) || 0,
+      qty: Number(i.qty) || 1,
+      emoji: i.emoji || '🍽️',
+      category: i.category || ''
+    }))
+  };
+  EDIT_MENU_SEARCH = '';
+
+  POS_DOM.editOrderTitle.textContent = '#' + order.order_number;
+
+  // Meta line: order type + payment method + table
+  const otLabel = EDIT_STATE.order_type === 'takeaway' ? '🛍️ Take Away' : '🍽️ Dine In' + (EDIT_STATE.table_number && EDIT_STATE.table_number !== 0 ? ' · Table ' + EDIT_STATE.table_number : '');
+  const pmLabel = EDIT_STATE.payment_method === 'card' ? '💳 Card' : '💵 Cash';
+  POS_DOM.editOrderMeta.innerHTML = `
+    <span class="edit-meta-pill">${otLabel}</span>
+    <span class="edit-meta-pill">${pmLabel}</span>
+    <span class="edit-meta-pill">Status: <b>${order.status}</b></span>
+  `;
+
+  POS_DOM.editInstructions.value = EDIT_STATE.instructions;
+  if (POS_DOM.editMenuSearch) POS_DOM.editMenuSearch.value = '';
+
+  renderEditItems();
+  renderEditMenu();
+  renderEditTotals();
+
+  POS_DOM.editModal.classList.add('open');
+}
+
+function closeEditModal() {
+  POS_DOM.editModal.classList.remove('open');
+  EDIT_STATE = null;
+}
+
+function renderEditItems() {
+  if (!EDIT_STATE) return;
+  if (EDIT_STATE.items.length === 0) {
+    POS_DOM.editItemsList.innerHTML = '<div class="edit-empty">No items. Add one from the menu below.</div>';
+    return;
+  }
+  POS_DOM.editItemsList.innerHTML = EDIT_STATE.items.map((it, idx) => `
+    <div class="edit-item-row">
+      <div class="edit-item-info">
+        <span class="edit-item-emoji">${it.emoji || '🍽️'}</span>
+        <div>
+          <div class="edit-item-name">${escapeHTML(it.name)}</div>
+          <div class="edit-item-price">${formatPrice(it.price)} each</div>
+        </div>
+      </div>
+      <div class="edit-item-controls">
+        <button class="edit-qty-btn" data-edit-qty-minus="${idx}">−</button>
+        <span class="edit-qty-val">${it.qty}</span>
+        <button class="edit-qty-btn" data-edit-qty-plus="${idx}">+</button>
+        <button class="edit-remove-btn" data-edit-remove="${idx}" title="Remove">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderEditMenu() {
+  if (!EDIT_STATE) return;
+  let menu = (typeof getMenu === 'function') ? getMenu() : [];
+  // Exclude items already in the cart? No — allow adding duplicates (e.g. extra coffees).
+  // But filter by search if present.
+  const q = EDIT_MENU_SEARCH.trim().toLowerCase();
+  let filtered = menu;
+  if (q) {
+    filtered = menu.filter(i => (i.name || '').toLowerCase().includes(q) || (i.desc || '').toLowerCase().includes(q));
+  }
+  // Only show available items, and limit to first 30 to keep DOM light.
+  filtered = filtered.filter(i => i.available !== false).slice(0, 30);
+
+  if (filtered.length === 0) {
+    POS_DOM.editMenuList.innerHTML = '<div class="edit-empty">No matching items.</div>';
+    return;
+  }
+  POS_DOM.editMenuList.innerHTML = filtered.map(it => `
+    <button class="edit-menu-item" data-edit-add="${it.id}">
+      <span class="edit-menu-emoji">${it.emoji || '🍽️'}</span>
+      <span class="edit-menu-name">${escapeHTML(it.name)}</span>
+      <span class="edit-menu-price">${formatPrice(it.price)}</span>
+    </button>
+  `).join('');
+}
+
+function renderEditTotals() {
+  if (!EDIT_STATE) return;
+  // Pass the order's payment method so PRA uses the right rate (cash 16% / card 8%).
+  const totals = calcCartTotals(EDIT_STATE.items, EDIT_STATE.payment_method);
+  const info = totals.taxInfo || (typeof getTaxSettings === 'function' ? getTaxSettings() : null);
+  const fbrLabel = (info && info.fbrLabel) || 'FBR Sales Tax';
+  const praLabel = (info && info.praLabel) || 'PRA Punjab Tax';
+  const fbrRate = (info && info.fbrEnabled) ? info.fbrRatePct : 0;
+  const pmLabel = EDIT_STATE.payment_method === 'card' ? 'Card' : 'Cash';
+  const praRate = totals.praRatePct != null ? totals.praRatePct : ((info && info.praEnabled) ? info.praRatePct : 0);
+  POS_DOM.editTotals.innerHTML = `
+    <div class="edit-totals-row"><span>Subtotal</span><span>${formatPrice(totals.subtotal)}</span></div>
+    ${totals.fbrTax > 0 ? `<div class="edit-totals-row"><span>${escapeHTML(fbrLabel)} (${fbrRate}%)</span><span>${formatPrice(totals.fbrTax)}</span></div>` : ''}
+    ${totals.praTax > 0 ? `<div class="edit-totals-row"><span>${escapeHTML(praLabel)} (${praRate}% · ${pmLabel})</span><span>${formatPrice(totals.praTax)}</span></div>` : ''}
+    <div class="edit-totals-row grand"><span>Grand Total</span><span>${formatPrice(totals.total)}</span></div>
+  `;
+}
+
+async function saveEditOrder() {
+  if (!EDIT_STATE) return;
+  if (EDIT_STATE.items.length === 0) {
+    showToast('Cannot save an empty order. Add at least one item or cancel.', 'warning');
+    return;
+  }
+  // Recompute totals with the order's payment method so PRA uses the right rate.
+  const totals = calcCartTotals(EDIT_STATE.items, EDIT_STATE.payment_method);
+  const patch = {
+    items: EDIT_STATE.items.map(i => ({
+      id: i.id, name: i.name, price: i.price, qty: i.qty, emoji: i.emoji,
+      category: i.category || ''
+    })),
+    subtotal: totals.subtotal,
+    tax: totals.tax,
+    fbr_tax: totals.fbrTax || 0,
+    pra_tax: totals.praTax || 0,
+    total: totals.total,
+    instructions: (POS_DOM.editInstructions.value || '').trim(),
+    updated_at: new Date().toISOString()
+  };
+
+  POS_DOM.editSaveBtn.disabled = true;
+  POS_DOM.editSaveBtn.textContent = 'Saving...';
+  try {
+    if (!isSupabaseReady()) {
+      throw new Error('Supabase not configured — cannot save edits in demo mode.');
+    }
+    const { data, error } = await supabaseClient
+      .from('orders')
+      .update(patch)
+      .eq('id', EDIT_STATE.id)
+      .select()
+      .single();
+    if (error) throw error;
+    showToast('✓ Order updated', 'success');
+    closeEditModal();
+    await loadAllOrders();
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  } finally {
+    POS_DOM.editSaveBtn.disabled = false;
+    POS_DOM.editSaveBtn.textContent = 'Save Changes';
+  }
+}
+
+// Edit-modal event delegation (wired once in bootPos)
+function setupEditModalListeners() {
+  // Close on backdrop / cancel / X
+  POS_DOM.editModal.querySelectorAll('[data-edit-close]').forEach(el => {
+    el.addEventListener('click', closeEditModal);
+  });
+  // Save button
+  POS_DOM.editSaveBtn.addEventListener('click', saveEditOrder);
+  // Search input
+  POS_DOM.editMenuSearch.addEventListener('input', (e) => {
+    EDIT_MENU_SEARCH = e.target.value;
+    renderEditMenu();
+  });
+  // Delegated clicks inside the edit modal
+  POS_DOM.editModal.addEventListener('click', (e) => {
+    if (!EDIT_STATE) return;
+    const plus = e.target.closest('[data-edit-qty-plus]');
+    if (plus) {
+      const idx = Number(plus.dataset.editQtyPlus);
+      if (EDIT_STATE.items[idx]) EDIT_STATE.items[idx].qty += 1;
+      renderEditItems();
+      renderEditTotals();
+      return;
+    }
+    const minus = e.target.closest('[data-edit-qty-minus]');
+    if (minus) {
+      const idx = Number(minus.dataset.editQtyMinus);
+      if (EDIT_STATE.items[idx]) {
+        EDIT_STATE.items[idx].qty -= 1;
+        if (EDIT_STATE.items[idx].qty <= 0) EDIT_STATE.items.splice(idx, 1);
+      }
+      renderEditItems();
+      renderEditTotals();
+      return;
+    }
+    const rm = e.target.closest('[data-edit-remove]');
+    if (rm) {
+      const idx = Number(rm.dataset.editRemove);
+      if (EDIT_STATE.items[idx]) EDIT_STATE.items.splice(idx, 1);
+      renderEditItems();
+      renderEditTotals();
+      return;
+    }
+    const add = e.target.closest('[data-edit-add]');
+    if (add) {
+      const itemId = add.dataset.editAdd;
+      const menu = (typeof getMenu === 'function') ? getMenu() : [];
+      const item = menu.find(m => m.id === itemId);
+      if (!item) return;
+      const existing = EDIT_STATE.items.find(i => i.id === itemId);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        EDIT_STATE.items.push({
+          id: item.id, name: item.name, price: Number(item.price) || 0,
+          qty: 1, emoji: item.emoji || '🍽️', category: item.category || ''
+        });
+      }
+      renderEditItems();
+      renderEditTotals();
+      return;
+    }
+  });
 }
 
 // ----------------------------------------------------------------
@@ -632,6 +906,12 @@ function setupEventListeners() {
     const serveBtn = e.target.closest('[data-serve]');
     if (serveBtn) {
       await updateOrderStatus(serveBtn.dataset.serve, 'served');
+      return;
+    }
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      const order = POS_STATE.orders.find(o => o.id == editBtn.dataset.edit);
+      if (order) openEditModal(order);
       return;
     }
     const billBtn = e.target.closest('[data-bill]');

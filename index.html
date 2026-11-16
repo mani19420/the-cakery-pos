@@ -76,6 +76,37 @@
       <div class="summary-row" id="fbrRow" style="display:none;"><span id="fbrLabel">FBR Tax</span><span id="fbrTax">Rs 0</span></div>
       <div class="summary-row" id="praRow" style="display:none;"><span id="praLabel">PRA Tax</span><span id="praTax">Rs 0</span></div>
       <div class="summary-row total"><span>Total</span><span id="total">Rs 0</span></div>
+
+      <!-- ===== ORDER TYPE SELECTOR ===== -->
+      <div class="cart-choice-group">
+        <div class="cart-choice-label">Order Type</div>
+        <div class="cart-choice-grid">
+          <button type="button" class="choice-btn" data-order-type="takeaway">
+            <span class="choice-icon">🛍️</span>
+            <span class="choice-text">Take Away</span>
+          </button>
+          <button type="button" class="choice-btn active" data-order-type="dine_in">
+            <span class="choice-icon">🍽️</span>
+            <span class="choice-text">Dine In</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ===== PAYMENT METHOD SELECTOR ===== -->
+      <div class="cart-choice-group">
+        <div class="cart-choice-label">Payment Method</div>
+        <div class="cart-choice-grid">
+          <button type="button" class="choice-btn active" data-payment-method="cash">
+            <span class="choice-icon">💵</span>
+            <span class="choice-text">Cash</span>
+          </button>
+          <button type="button" class="choice-btn" data-payment-method="card">
+            <span class="choice-icon">💳</span>
+            <span class="choice-text">Card</span>
+          </button>
+        </div>
+      </div>
+
       <div class="cart-instructions">
         <label for="instructions">Special Instructions (optional)</label>
         <textarea id="instructions" placeholder="Any allergies or special requests?"></textarea>
@@ -113,10 +144,10 @@
   </footer>
 
   <!-- ===================== SCRIPTS ===================== -->
-  <script src="js/supabase-config.js"></script>
-  <script src="js/menu-data.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/menu-store.js"></script>
-  <script src="js/customer.js"></script>
+  <script src="js/supabase-config.js?v=6"></script>
+  <script src="js/menu-data.js?v=6"></script>
+  <script src="js/utils.js?v=6fresh2026"></script>
+  <script src="js/menu-store.js?v=6fresh2026"></script>
+  <script src="js/customer.js?v=6fresh2026"></script>
 </body>
 </html>

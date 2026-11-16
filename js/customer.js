@@ -7,7 +7,9 @@ const STATE = {
   cart: [],
   orders: [],          // customer's own orders (local cache)
   selectedCategory: 'all',
-  searchQuery: ''
+  searchQuery: '',
+  orderType: 'dine_in',     // 'dine_in' or 'takeaway'
+  paymentMethod: 'cash'     // 'cash' or 'card'
 };
 
 const DOM = {
@@ -47,13 +49,22 @@ const DOM = {
 // INIT
 // ----------------------------------------------------------------
 function init() {
-  // 1. Detect table from URL (?table=5)
+  // 1. Detect table from URL (?table=5) and/or order type (?type=takeaway)
   const urlParams = new URLSearchParams(window.location.search);
   const tableFromURL = urlParams.get('table');
+  const typeFromURL = urlParams.get('type');
+
+  // Allow a Take Away URL like index.html?type=takeaway (no table needed)
+  if (typeFromURL === 'takeaway' && !tableFromURL) {
+    STATE.table = null;
+    STATE.orderType = 'takeaway';
+    startApp();
+    return;
+  }
 
   if (!tableFromURL) {
-    // No table in URL → show the table picker (demo-friendly:
-    // lets you preview the customer app by just opening index.html)
+    // No table in URL → show the table picker (now also lets them
+    // choose Take Away without entering a table).
     showTablePicker();
     return;
   }
@@ -62,7 +73,8 @@ function init() {
   startApp();
 }
 
-// Show a modal asking which table the customer is sitting at
+// Show a modal asking which table the customer is sitting at,
+// OR let them pick Take Away (no table needed).
 function showTablePicker() {
   const saved = localStorage.getItem('cakery_last_table');
   let picked = saved || '';
@@ -72,39 +84,117 @@ function showTablePicker() {
   modal.innerHTML = `
     <div class="modal-backdrop"></div>
     <div class="modal-card">
-      <div class="modal-eyebrow">Table</div>
-      <h3 class="modal-title">Where are you sitting?</h3>
-      <p class="modal-text" style="margin-bottom:16px;">Enter your table number to start ordering.</p>
-      <input type="number" id="tablePickerInput" min="1" max="50" value="${picked}">
-      <button class="modal-btn" id="tablePickerGo" style="width:100%;">Start Ordering</button>
+      <div class="modal-eyebrow">Start Order</div>
+      <h3 class="modal-title">How are you ordering?</h3>
+      <p class="modal-text" style="margin-bottom:16px;">Choose Dine In and enter your table number, or Take Away to skip the table.</p>
+
+      <div class="picker-choice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <button type="button" class="picker-choice-btn active" data-picker-mode="dine_in">
+          <span style="font-size:1.4rem;">🍽️</span>
+          <span>Dine In</span>
+        </button>
+        <button type="button" class="picker-choice-btn" data-picker-mode="takeaway">
+          <span style="font-size:1.4rem;">🛍️</span>
+          <span>Take Away</span>
+        </button>
+      </div>
+
+      <div id="tablePickerInputGroup">
+        <label for="tablePickerInput" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">TABLE NUMBER</label>
+        <input type="number" id="tablePickerInput" min="1" max="50" value="${picked}">
+      </div>
+
+      <button class="modal-btn" id="tablePickerGo" style="width:100%;margin-top:14px;">Start Ordering</button>
     </div>
   `;
   document.body.appendChild(modal);
+
+  let pickerMode = 'dine_in';
+  const inputGroup = modal.querySelector('#tablePickerInputGroup');
   const input = modal.querySelector('#tablePickerInput');
+  const goBtn = modal.querySelector('#tablePickerGo');
+
+  modal.querySelectorAll('.picker-choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pickerMode = btn.dataset.pickerMode;
+      modal.querySelectorAll('.picker-choice-btn').forEach(b => b.classList.toggle('active', b === btn));
+      // Hide table input for Take Away
+      inputGroup.style.display = (pickerMode === 'takeaway') ? 'none' : 'block';
+      goBtn.textContent = (pickerMode === 'takeaway') ? 'Start Take Away Order' : 'Start Ordering';
+    });
+  });
+
+  // Minimal styling for picker-choice-btn reusing .choice-btn look
+  modal.querySelectorAll('.picker-choice-btn').forEach(btn => {
+    btn.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 8px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;font-size:0.86rem;font-weight:600;color:var(--text-muted);';
+    if (btn.classList.contains('active')) {
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.boxShadow = 'inset 0 0 0 1.5px var(--accent)';
+      btn.style.color = 'var(--text)';
+    }
+  });
+  // Re-apply active style on toggle
+  modal.querySelectorAll('.picker-choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modal.querySelectorAll('.picker-choice-btn').forEach(b => {
+        b.style.borderColor = 'var(--border)';
+        b.style.boxShadow = 'none';
+        b.style.color = 'var(--text-muted)';
+      });
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.boxShadow = 'inset 0 0 0 1.5px var(--accent)';
+      btn.style.color = 'var(--text)';
+    });
+  });
+
   const go = () => {
+    if (pickerMode === 'takeaway') {
+      // Take Away: no table needed, go straight to menu
+      STATE.table = null;
+      STATE.orderType = 'takeaway';
+      modal.remove();
+      startApp();
+      return;
+    }
     const n = parseInt(input.value);
     if (!n || n < 1 || n > 50) { input.style.borderColor = '#dc2626'; input.focus(); return; }
     localStorage.setItem('cakery_last_table', String(n));
     window.location.href = 'index.html?table=' + n;
   };
-  modal.querySelector('#tablePickerGo').addEventListener('click', go);
+  goBtn.addEventListener('click', go);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   setTimeout(() => input.focus(), 100);
 }
 
-// Boot the app once we know the table number
+// Boot the app once we know the table number (or Take Away was chosen)
 async function startApp() {
+  // Show the table badge for Dine In, or a Take Away badge for Take Away.
   if (DOM.tableBadge) {
-    DOM.tableBadge.style.display = 'inline-flex';
-    DOM.tableBadge.innerHTML = 'Table ' + STATE.table;
+    if (STATE.orderType === 'takeaway') {
+      DOM.tableBadge.style.display = 'inline-flex';
+      DOM.tableBadge.innerHTML = '🛍️ Take Away';
+    } else if (STATE.table) {
+      DOM.tableBadge.style.display = 'inline-flex';
+      DOM.tableBadge.innerHTML = '🍽️ Table ' + STATE.table;
+    }
   }
 
-  // 2. Load saved cart & orders from localStorage
-  const saved = loadTableState(STATE.table);
+  // 2. Load saved cart & orders from localStorage (keyed by table or 'takeaway')
+  const storageKey = STATE.orderType === 'takeaway' ? 'takeaway' : STATE.table;
+  const saved = loadTableState(storageKey);
   if (saved) {
     STATE.cart = saved.cart || [];
     STATE.orders = saved.orders || [];
   }
+
+  // Sync the cart choice buttons with the current STATE (so the active
+  // highlight matches what was chosen in the picker)
+  document.querySelectorAll('[data-order-type]').forEach(b => {
+    b.classList.toggle('active', b.dataset.orderType === STATE.orderType);
+  });
+  document.querySelectorAll('[data-payment-method]').forEach(b => {
+    b.classList.toggle('active', b.dataset.paymentMethod === STATE.paymentMethod);
+  });
 
   // 2b. Load menu + brand + tax from Supabase (or cache/fallback)
   await Promise.all([loadMenu(), loadBrand(), loadTaxSettings()]);
@@ -255,7 +345,8 @@ function updateCart() {
     DOM.cartCount.textContent = totalItems;
     DOM.cartCount.classList.toggle('hidden', totalItems === 0);
   }
-  const totals = calcCartTotals(STATE.cart);
+  // Pass the chosen payment method so PRA uses the right rate (cash 16% / card 8%).
+  const totals = calcCartTotals(STATE.cart, STATE.paymentMethod);
   const info = totals.taxInfo || (typeof getTaxSettings === 'function' ? getTaxSettings() : null);
 
   if (DOM.subtotal) DOM.subtotal.textContent = formatPrice(totals.subtotal);
@@ -274,7 +365,10 @@ function updateCart() {
     const showPra = info && info.praEnabled && totals.praTax > 0;
     DOM.praRow.style.display = showPra ? 'flex' : 'none';
     if (showPra) {
-      DOM.praLabel.textContent = (info.praLabel || 'PRA Punjab Tax') + ' (' + info.praRatePct + '%)';
+      // Show the rate that actually applies to the selected payment method.
+      const pmLabel = STATE.paymentMethod === 'card' ? 'Card' : 'Cash';
+      const ratePct = totals.praRatePct != null ? totals.praRatePct : info.praRatePct;
+      DOM.praLabel.textContent = (info.praLabel || 'PRA Punjab Tax') + ' (' + ratePct + '% · ' + pmLabel + ')';
       DOM.praTax.textContent = formatPrice(totals.praTax);
     }
   }
@@ -323,19 +417,27 @@ async function placeOrder() {
     showToast('Your cart is empty!', 'warning');
     return;
   }
-  if (!STATE.table) {
-    showToast('No table selected. Please scan the QR code again.', 'error');
+  // Dine In requires a table number; Take Away does not.
+  if (STATE.orderType === 'dine_in' && !STATE.table) {
+    showToast('No table selected. Please scan the QR code again or switch to Take Away.', 'error');
+    return;
+  }
+  // Defensive: ensure both selectors have a value.
+  if (!STATE.orderType || !STATE.paymentMethod) {
+    showToast('Please choose your order type and payment method.', 'warning');
     return;
   }
 
   const orderNumber = generateOrderNumber();
-  const totals = calcCartTotals(STATE.cart);
+  const totals = calcCartTotals(STATE.cart, STATE.paymentMethod);
   const instructions = DOM.instructions ? DOM.instructions.value.trim() : '';
 
   // Build payload — match the schema in sql/schema.sql
   const payload = {
     order_number: orderNumber,
-    table_number: STATE.table,
+    table_number: STATE.orderType === 'takeaway' ? 0 : (STATE.table || 0),
+    order_type: STATE.orderType,
+    payment_method: STATE.paymentMethod,
     items: STATE.cart.map(i => ({
       id: i.id, name: i.name, price: i.price, qty: i.qty, emoji: i.emoji,
       category: i.category || ''
@@ -362,6 +464,8 @@ async function placeOrder() {
       id: result.order.id,
       order_number: result.order.order_number,
       table_number: result.order.table_number,
+      order_type: result.order.order_type || STATE.orderType,
+      payment_method: result.order.payment_method || STATE.paymentMethod,
       items: result.order.items,
       subtotal: result.order.subtotal,
       tax: result.order.tax,
@@ -467,6 +571,11 @@ function renderOrdersList() {
     const stepIdx = { received: 0, accepted: 1, ready: 2, served: 3 }[order.status] ?? 0;
     const labels = ['Received', 'Preparing', 'Ready', 'Served'];
     const isRejected = order.status === 'rejected';
+    const otLabel = order.order_type === 'takeaway' ? '🛍️ Take Away' : '🍽️ Dine In';
+    const pmLabel = order.payment_method === 'card' ? '💳 Card' : '💵 Cash';
+    const tableLabel = (order.order_type === 'takeaway' || !order.table_number || order.table_number === 0)
+      ? otLabel
+      : '🍽️ Table ' + order.table_number;
     return `
       <div class="track-card">
         <div class="track-header">
@@ -477,7 +586,8 @@ function renderOrdersList() {
           <div style="text-align:right;">
             ${isRejected
               ? '<span style="color:var(--danger);font-weight:600;font-size:0.9rem;">Rejected</span>'
-              : `<span style="color:var(--text-muted);font-weight:600;font-size:0.9rem;">Table ${order.table_number}</span>`}
+              : `<div style="font-weight:600;font-size:0.9rem;">${tableLabel}</div>
+                 <div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">${pmLabel}</div>`}
           </div>
         </div>
         ${!isRejected ? `
@@ -513,7 +623,8 @@ function renderOrdersList() {
 // SAVE / LOAD
 // ----------------------------------------------------------------
 function saveState() {
-  saveTableState(STATE.table, { cart: STATE.cart, orders: STATE.orders });
+  const storageKey = STATE.orderType === 'takeaway' ? 'takeaway' : STATE.table;
+  saveTableState(storageKey, { cart: STATE.cart, orders: STATE.orders });
 }
 
 // ----------------------------------------------------------------
@@ -527,6 +638,24 @@ function setupEventListeners() {
 
   // Place order
   DOM.placeOrderBtn.addEventListener('click', placeOrder);
+
+  // Order type + payment method choice buttons (event delegation)
+  document.addEventListener('click', (e) => {
+    const otBtn = e.target.closest('[data-order-type]');
+    if (otBtn) {
+      STATE.orderType = otBtn.dataset.orderType;
+      document.querySelectorAll('[data-order-type]').forEach(b => b.classList.toggle('active', b === otBtn));
+      return;
+    }
+    const pmBtn = e.target.closest('[data-payment-method]');
+    if (pmBtn) {
+      STATE.paymentMethod = pmBtn.dataset.paymentMethod;
+      document.querySelectorAll('[data-payment-method]').forEach(b => b.classList.toggle('active', b === pmBtn));
+      // PRA rate depends on payment method → recompute totals + label.
+      updateCart();
+      return;
+    }
+  });
 
   // Track / My Orders button
   DOM.trackBtn.addEventListener('click', () => {

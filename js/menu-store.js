@@ -283,12 +283,15 @@ let _taxCache = null;
 
 // Fallback used when Supabase not configured (demo mode).
 // Slugs here MUST match the category slugs in menu-data.js (CATEGORIES).
+// NOTE: PRA rate now depends on payment method (cash vs card).
 const TAX_FALLBACK = {
   fbrEnabled: true,
-  fbrRatePct: 5,
+  fbrRatePct: 18,
   fbrLabel: 'FBR Sales Tax',
   praEnabled: true,
-  praRatePct: 16,
+  praRatePct: 16,          // legacy field, kept for backward compat (treated as the cash rate)
+  praRateCashPct: 16,
+  praRateCardPct: 8,
   praLabel: 'PRA Punjab Tax',
   beverageCategories: ['coffee', 'matcha', 'ncaffeine', 'onrocks', 'tea'],
   pricesInclusive: false
@@ -305,7 +308,11 @@ function _normalizeTaxRow(row) {
     fbrRatePct: Number(row.fbr_rate_pct) || 0,
     fbrLabel: row.fbr_label || 'FBR Sales Tax',
     praEnabled: row.pra_enabled !== false,
+    // PRA rate is now payment-method-aware: cash vs card.
+    // Fall back to the legacy single rate if the new columns are absent.
     praRatePct: Number(row.pra_rate_pct) || 0,
+    praRateCashPct: (row.pra_rate_cash_pct != null) ? Number(row.pra_rate_cash_pct) : (Number(row.pra_rate_pct) || 0),
+    praRateCardPct: (row.pra_rate_card_pct != null) ? Number(row.pra_rate_card_pct) : (Number(row.pra_rate_pct) || 0),
     praLabel: row.pra_label || 'PRA Punjab Tax',
     beverageCategories: bevCats,
     pricesInclusive: !!row.prices_inclusive
@@ -354,7 +361,10 @@ async function saveTaxSettings(t) {
     fbr_rate_pct: Number(t.fbrRatePct) || 0,
     fbr_label: t.fbrLabel || 'FBR Sales Tax',
     pra_enabled: !!t.praEnabled,
-    pra_rate_pct: Number(t.praRatePct) || 0,
+    // Keep the legacy single rate in sync with the cash rate for backward compat.
+    pra_rate_pct: Number(t.praRateCashPct != null ? t.praRateCashPct : t.praRatePct) || 0,
+    pra_rate_cash_pct: Number(t.praRateCashPct != null ? t.praRateCashPct : t.praRatePct) || 0,
+    pra_rate_card_pct: Number(t.praRateCardPct != null ? t.praRateCardPct : t.praRatePct) || 0,
     pra_label: t.praLabel || 'PRA Punjab Tax',
     beverage_categories: JSON.stringify(t.beverageCategories || []),
     prices_inclusive: !!t.pricesInclusive
@@ -373,13 +383,16 @@ async function saveTaxSettings(t) {
 // ----------------------------------------------------------------
 // DUAL TAX CALCULATION
 // Given a cart array [{id, name, price, qty, category, ...}], returns
-//   { subtotal, fbrTax, praTax, totalTax, total, fbrBase, praBase }
+//   { subtotal, fbrTax, praTax, totalTax, total, fbrBase, praBase, praRatePct }
 // fbrBase = sum of food items (not beverages) — FBR applies
 // praBase = sum of beverage items — PRA applies
 // If pricesInclusive is true, taxes are extracted from the prices
 // instead of added on top.
+// `paymentMethod` ('cash' | 'card') selects the PRA rate: cash uses
+// praRateCashPct, card uses praRateCardPct. If null/unknown, falls back
+// to the legacy praRatePct (treated as the cash rate).
 // ----------------------------------------------------------------
-function calcCartTotalsWithTax(cart, tax) {
+function calcCartTotalsWithTax(cart, tax, paymentMethod) {
   tax = tax || getTaxSettings();
   let fbrBase = 0;
   let praBase = 0;
@@ -391,26 +404,41 @@ function calcCartTotalsWithTax(cart, tax) {
   });
   const subtotal = fbrBase + praBase;
 
+  // Pick the PRA rate based on payment method.
+  // card → praRateCardPct (8%), cash → praRateCashPct (16%).
+  // Default to cash rate if unknown.
+  let praRatePct = 0;
+  if (tax.praEnabled) {
+    if (paymentMethod === 'card' && tax.praRateCardPct != null) {
+      praRatePct = Number(tax.praRateCardPct) || 0;
+    } else if (paymentMethod === 'cash' && tax.praRateCashPct != null) {
+      praRatePct = Number(tax.praRateCashPct) || 0;
+    } else {
+      // Unknown / legacy: use the single rate field (kept in sync with cash rate).
+      praRatePct = Number(tax.praRatePct != null ? tax.praRatePct : (tax.praRateCashPct || 0)) || 0;
+    }
+  }
+
   let fbrTax = 0, praTax = 0;
   if (tax.pricesInclusive) {
     // Taxes already inside the prices: extract them so the bill shows the split.
     if (tax.fbrEnabled && fbrBase > 0) {
       fbrTax = Math.round(fbrBase - (fbrBase / (1 + tax.fbrRatePct / 100)));
     }
-    if (tax.praEnabled && praBase > 0) {
-      praTax = Math.round(praBase - (praBase / (1 + tax.praRatePct / 100)));
+    if (tax.praEnabled && praBase > 0 && praRatePct > 0) {
+      praTax = Math.round(praBase - (praBase / (1 + praRatePct / 100)));
     }
     const total = subtotal;
-    return { subtotal, fbrTax, praTax, totalTax: fbrTax + praTax, total, fbrBase, praBase };
+    return { subtotal, fbrTax, praTax, totalTax: fbrTax + praTax, total, fbrBase, praBase, praRatePct };
   }
   if (tax.fbrEnabled && fbrBase > 0) {
     fbrTax = Math.round(fbrBase * (tax.fbrRatePct / 100));
   }
-  if (tax.praEnabled && praBase > 0) {
-    praTax = Math.round(praBase * (tax.praRatePct / 100));
+  if (tax.praEnabled && praBase > 0 && praRatePct > 0) {
+    praTax = Math.round(praBase * (praRatePct / 100));
   }
   const total = subtotal + fbrTax + praTax;
-  return { subtotal, fbrTax, praTax, totalTax: fbrTax + praTax, total, fbrBase, praBase };
+  return { subtotal, fbrTax, praTax, totalTax: fbrTax + praTax, total, fbrBase, praBase, praRatePct };
 }
 
 // ----------------------------------------------------------------
