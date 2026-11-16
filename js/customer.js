@@ -49,32 +49,27 @@ const DOM = {
 // INIT
 // ----------------------------------------------------------------
 function init() {
-  // 1. Detect table from URL (?table=5) and/or order type (?type=takeaway)
+  // The customer reaches this page by scanning the table QR code,
+  // which opens index.html?table=N. We go straight to the menu in
+  // Dine In mode for that table — no "Start Order" picker needed.
+  // If for some reason the table is missing from the URL (direct
+  // visit), we ask them to pick their table number from 1–8.
   const urlParams = new URLSearchParams(window.location.search);
   const tableFromURL = urlParams.get('table');
-  const typeFromURL = urlParams.get('type');
-
-  // Allow a Take Away URL like index.html?type=takeaway (no table needed)
-  if (typeFromURL === 'takeaway' && !tableFromURL) {
-    STATE.table = null;
-    STATE.orderType = 'takeaway';
-    startApp();
-    return;
-  }
 
   if (!tableFromURL) {
-    // No table in URL → show the table picker (now also lets them
-    // choose Take Away without entering a table).
     showTablePicker();
     return;
   }
 
   STATE.table = parseInt(tableFromURL);
+  STATE.orderType = 'dine_in';
   startApp();
 }
 
-// Show a modal asking which table the customer is sitting at,
-// OR let them pick Take Away (no table needed).
+// Show a modal asking which table the customer is sitting at (1–8).
+// Dine In only — Take Away was removed in v7. Every table has its own
+// QR code, so the normal flow never lands here; this is just a fallback.
 function showTablePicker() {
   const saved = localStorage.getItem('cakery_last_table');
   let picked = saved || '';
@@ -84,80 +79,24 @@ function showTablePicker() {
   modal.innerHTML = `
     <div class="modal-backdrop"></div>
     <div class="modal-card">
-      <div class="modal-eyebrow">Start Order</div>
-      <h3 class="modal-title">How are you ordering?</h3>
-      <p class="modal-text" style="margin-bottom:16px;">Choose Dine In and enter your table number, or Take Away to skip the table.</p>
+      <div class="modal-eyebrow">Dine In</div>
+      <h3 class="modal-title">What's your table number?</h3>
+      <p class="modal-text" style="margin-bottom:16px;">Scan the QR code on your table, or enter your table number (1–8) below to start ordering.</p>
 
-      <div class="picker-choice-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-        <button type="button" class="picker-choice-btn active" data-picker-mode="dine_in">
-          <span style="font-size:1.4rem;">🍽️</span>
-          <span>Dine In</span>
-        </button>
-        <button type="button" class="picker-choice-btn" data-picker-mode="takeaway">
-          <span style="font-size:1.4rem;">🛍️</span>
-          <span>Take Away</span>
-        </button>
-      </div>
-
-      <div id="tablePickerInputGroup">
-        <label for="tablePickerInput" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">TABLE NUMBER</label>
-        <input type="number" id="tablePickerInput" min="1" max="50" value="${picked}">
-      </div>
+      <label for="tablePickerInput" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">TABLE NUMBER</label>
+      <input type="number" id="tablePickerInput" min="1" max="8" value="${picked}">
 
       <button class="modal-btn" id="tablePickerGo" style="width:100%;margin-top:14px;">Start Ordering</button>
     </div>
   `;
   document.body.appendChild(modal);
 
-  let pickerMode = 'dine_in';
-  const inputGroup = modal.querySelector('#tablePickerInputGroup');
   const input = modal.querySelector('#tablePickerInput');
   const goBtn = modal.querySelector('#tablePickerGo');
 
-  modal.querySelectorAll('.picker-choice-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      pickerMode = btn.dataset.pickerMode;
-      modal.querySelectorAll('.picker-choice-btn').forEach(b => b.classList.toggle('active', b === btn));
-      // Hide table input for Take Away
-      inputGroup.style.display = (pickerMode === 'takeaway') ? 'none' : 'block';
-      goBtn.textContent = (pickerMode === 'takeaway') ? 'Start Take Away Order' : 'Start Ordering';
-    });
-  });
-
-  // Minimal styling for picker-choice-btn reusing .choice-btn look
-  modal.querySelectorAll('.picker-choice-btn').forEach(btn => {
-    btn.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 8px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;font-size:0.86rem;font-weight:600;color:var(--text-muted);';
-    if (btn.classList.contains('active')) {
-      btn.style.borderColor = 'var(--accent)';
-      btn.style.boxShadow = 'inset 0 0 0 1.5px var(--accent)';
-      btn.style.color = 'var(--text)';
-    }
-  });
-  // Re-apply active style on toggle
-  modal.querySelectorAll('.picker-choice-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      modal.querySelectorAll('.picker-choice-btn').forEach(b => {
-        b.style.borderColor = 'var(--border)';
-        b.style.boxShadow = 'none';
-        b.style.color = 'var(--text-muted)';
-      });
-      btn.style.borderColor = 'var(--accent)';
-      btn.style.boxShadow = 'inset 0 0 0 1.5px var(--accent)';
-      btn.style.color = 'var(--text)';
-    });
-  });
-
   const go = () => {
-    if (pickerMode === 'takeaway') {
-      // Take Away: no table needed, go straight to menu
-      STATE.table = null;
-      STATE.orderType = 'takeaway';
-      modal.remove();
-      startApp();
-      return;
-    }
     const n = parseInt(input.value);
-    if (!n || n < 1 || n > 50) { input.style.borderColor = '#dc2626'; input.focus(); return; }
+    if (!n || n < 1 || n > 8) { input.style.borderColor = '#dc2626'; input.focus(); return; }
     localStorage.setItem('cakery_last_table', String(n));
     window.location.href = 'index.html?table=' + n;
   };
@@ -166,32 +105,23 @@ function showTablePicker() {
   setTimeout(() => input.focus(), 100);
 }
 
-// Boot the app once we know the table number (or Take Away was chosen)
+// Boot the app once we know the table number (Dine In only — Take Away removed in v7)
 async function startApp() {
-  // Show the table badge for Dine In, or a Take Away badge for Take Away.
-  if (DOM.tableBadge) {
-    if (STATE.orderType === 'takeaway') {
-      DOM.tableBadge.style.display = 'inline-flex';
-      DOM.tableBadge.innerHTML = '🛍️ Take Away';
-    } else if (STATE.table) {
-      DOM.tableBadge.style.display = 'inline-flex';
-      DOM.tableBadge.innerHTML = '🍽️ Table ' + STATE.table;
-    }
+  // Show the table badge for Dine In.
+  if (DOM.tableBadge && STATE.table) {
+    DOM.tableBadge.style.display = 'inline-flex';
+    DOM.tableBadge.innerHTML = '🍽️ Table ' + STATE.table;
   }
 
-  // 2. Load saved cart & orders from localStorage (keyed by table or 'takeaway')
-  const storageKey = STATE.orderType === 'takeaway' ? 'takeaway' : STATE.table;
+  // 2. Load saved cart & orders from localStorage (keyed by table number)
+  const storageKey = STATE.table;
   const saved = loadTableState(storageKey);
   if (saved) {
     STATE.cart = saved.cart || [];
     STATE.orders = saved.orders || [];
   }
 
-  // Sync the cart choice buttons with the current STATE (so the active
-  // highlight matches what was chosen in the picker)
-  document.querySelectorAll('[data-order-type]').forEach(b => {
-    b.classList.toggle('active', b.dataset.orderType === STATE.orderType);
-  });
+  // Sync the cart payment-method buttons with the current STATE
   document.querySelectorAll('[data-payment-method]').forEach(b => {
     b.classList.toggle('active', b.dataset.paymentMethod === STATE.paymentMethod);
   });
@@ -422,9 +352,9 @@ async function placeOrder() {
     showToast('No table selected. Please scan the QR code again or switch to Take Away.', 'error');
     return;
   }
-  // Defensive: ensure both selectors have a value.
-  if (!STATE.orderType || !STATE.paymentMethod) {
-    showToast('Please choose your order type and payment method.', 'warning');
+  // Defensive: ensure a payment method is selected (order type is always Dine In).
+  if (!STATE.paymentMethod) {
+    showToast('Please choose your payment method.', 'warning');
     return;
   }
 
@@ -433,10 +363,11 @@ async function placeOrder() {
   const instructions = DOM.instructions ? DOM.instructions.value.trim() : '';
 
   // Build payload — match the schema in sql/schema.sql
+  // (Order type is always Dine In now — Take Away removed in v7)
   const payload = {
     order_number: orderNumber,
-    table_number: STATE.orderType === 'takeaway' ? 0 : (STATE.table || 0),
-    order_type: STATE.orderType,
+    table_number: STATE.table || 0,
+    order_type: 'dine_in',
     payment_method: STATE.paymentMethod,
     items: STATE.cart.map(i => ({
       id: i.id, name: i.name, price: i.price, qty: i.qty, emoji: i.emoji,
@@ -623,8 +554,7 @@ function renderOrdersList() {
 // SAVE / LOAD
 // ----------------------------------------------------------------
 function saveState() {
-  const storageKey = STATE.orderType === 'takeaway' ? 'takeaway' : STATE.table;
-  saveTableState(storageKey, { cart: STATE.cart, orders: STATE.orders });
+  saveTableState(STATE.table, { cart: STATE.cart, orders: STATE.orders });
 }
 
 // ----------------------------------------------------------------
@@ -639,14 +569,9 @@ function setupEventListeners() {
   // Place order
   DOM.placeOrderBtn.addEventListener('click', placeOrder);
 
-  // Order type + payment method choice buttons (event delegation)
+  // Payment method choice buttons (event delegation) — Order Type is always
+  // Dine In now (Take Away removed in v7), so no order-type buttons exist.
   document.addEventListener('click', (e) => {
-    const otBtn = e.target.closest('[data-order-type]');
-    if (otBtn) {
-      STATE.orderType = otBtn.dataset.orderType;
-      document.querySelectorAll('[data-order-type]').forEach(b => b.classList.toggle('active', b === otBtn));
-      return;
-    }
     const pmBtn = e.target.closest('[data-payment-method]');
     if (pmBtn) {
       STATE.paymentMethod = pmBtn.dataset.paymentMethod;

@@ -335,34 +335,48 @@ input { font-family: inherit; font-size: inherit; color: inherit; }
 /* ------------------ New order popup ------------------ */
 .popup-container {
   position: fixed;
-  top: 60px; right: 16px;
+  top: 16px; left: 50%; transform: translateX(-50%);
   z-index: 999;
   display: flex; flex-direction: column; gap: 10px;
-  max-width: 320px;
+  width: min(380px, calc(100vw - 32px));
 }
 .popup {
   background: var(--surface);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
   box-shadow: var(--shadow-pop);
-  padding: 12px 14px;
-  animation: slideIn 0.25s ease;
+  padding: 14px 16px;
+  animation: slideInTop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-@keyframes slideIn {
-  from { transform: translateY(-8px); opacity: 0; }
-  to { transform: none; opacity: 1; }
+@keyframes slideInTop {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
-.popup.closing { animation: slideOut 0.2s ease forwards; }
-@keyframes slideOut { to { transform: translateY(-8px); opacity: 0; } }
+.popup.closing { animation: slideOutTop 0.25s ease forwards; }
+@keyframes slideOutTop { to { transform: translateY(-100%); opacity: 0; } }
 
 .popup-head {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .popup-title {
-  font-size: 0.72rem; font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.07em;
+  font-size: 0.92rem; font-weight: 700;
+  color: var(--text);
+  display: flex; align-items: center; gap: 6px;
+}
+.popup-bell {
+  display: inline-block;
+  font-size: 1.1rem;
+  animation: bellRing 0.9s ease-in-out 3;
+  transform-origin: top center;
+}
+@keyframes bellRing {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(18deg); }
+  30% { transform: rotate(-14deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
 }
 .popup-close {
   color: var(--text-faint);
@@ -371,7 +385,7 @@ input { font-family: inherit; font-size: inherit; color: inherit; }
   display: flex; align-items: center; justify-content: center;
 }
 .popup-close:hover { color: var(--text); }
-.popup-body { font-size: 0.85rem; color: var(--text); margin-bottom: 8px; }
+.popup-body { font-size: 0.85rem; color: var(--text); margin-bottom: 10px; }
 .popup-actions { display: flex; }
 .popup-btn {
   padding: 7px 14px;

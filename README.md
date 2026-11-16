@@ -22,22 +22,22 @@ Customers scan a QR code at their table → see the menu → place an order. The
 ## ✨ Features
 
 ### Customer (`index.html`)
-- Scan QR → menu auto-binds to their table number
-- **Order type picker on first screen** — Dine In (enter table) or Take Away (no table needed)
+- Scan QR → menu **auto-opens** immediately for that table — no Start Order picker, the table number is read from the URL (`?table=N`).
+- **Dine In only** — Take Away was removed in v7. Every table has its own QR code, so the customer's table is always known. If a customer opens `index.html` without a `?table=N`, a simple "What's your table number?" prompt appears (1–8).
 - 100+ items across 13 categories (breads, viennoiserie, patisserie, signature cakes, slices, chef's whisk, sandwiches, coffees, matcha, no-caffeine, on-the-rocks, tea, add-ons) — all parsed from your actual menus
 - Search, category filter, popular tags
 - Cart with quantity controls + special instructions
 - **Cart shows dual tax breakdown** — FBR Sales Tax (18% on food items, same for cash and card) + PRA Punjab Tax (16% on Cash / 8% on Card, on beverages only). The PRA rate and total **recompute live** when the customer switches between Cash and Card at checkout.
-- **Order Type + Payment Method selectors** at checkout — a 2×2 grid: 🛍️ Take Away / 🍽️ Dine In, and 💵 Cash / 💳 Card. Both must be chosen before Place Order.
+- **Payment Method selector** at checkout — 💵 Cash / 💳 Card (a payment method must be chosen before Place Order; order type is always Dine In).
 - Live order tracking (Received → Preparing → Ready → Served)
 - Toasts when status changes (real-time via Supabase)
-- Cart + order type + payment choice persists per table in localStorage
+- Cart + payment choice persists per table in localStorage
 
 ### POS Dashboard (`pos.html`)
 - **Staff login required** — username + password. Accounts created from Admin → Users tab. Session lasts 8 hours.
 - 3-column Kanban: **New Orders / Preparing / Ready**
-- **Pop-up alert** when a new order arrives (with sound 🔔)
-- Each order card shows the **order type badge** (🍽️ Dine In / 🛍️ Take Away) and **payment method badge** (💵 Cash / 💳 Card) at a glance
+- **Pop-up alert slides in from the top-center of the screen** when a new order arrives, with a 🔔 bell icon that rings and a **bell sound** (three rising beeps via the Web Audio API — no audio file needed). Auto-dismisses after 12 seconds. (Toggle the sound from the POS header.)
+- Each order card shows the **payment method badge** (💵 Cash / 💳 Card) at a glance (order type is always 🍽️ Dine In)
 - Buttons: Accept / Reject / Mark Ready / Serve / Edit / View Bill (role-gated: waiters see view-only; cashiers can't reject)
 - **✏️ Edit Order** — open any active order to change items: increase/decrease quantity, remove an item, or add a new item from the searchable menu. Tax totals (FBR + PRA) recompute live. Save writes the changes back to Supabase. (Owner / Manager / Cashier can edit; Waiter cannot.)
 - **Bill shows order type, table, payment method, dual tax split** (FBR and PRA on separate lines), and the staff name who served the order
@@ -49,9 +49,11 @@ Customers scan a QR code at their table → see the menu → place an order. The
 - Mobile-responsive
 
 ### QR Generator (`qr.html`)
-- Set number of tables → auto-generates a QR card per table
-- Download each QR as PNG (high-res, print-ready)
+- Set number of tables (default **8**) → auto-generates a QR card per table
+- Each QR opens `index.html?table=N` → the customer lands directly on the menu for their table (no Start Order picker)
+- Download each QR as PNG (high-res, print-ready) — print one per table and stick it on the table
 - Persists table count in localStorage
+- A pre-built `qr-codes/` folder is also included in the zip with all 8 table QR PNGs + an `all-tables.pdf` you can print on one A4 page (regenerate them with your real domain by editing `BASE_URL` in the generator script, or just open `qr.html` after deploying and download fresh QRs)
 
 ---
 
@@ -73,7 +75,7 @@ Customers scan a QR code at their table → see the menu → place an order. The
 No Supabase account needed — try the whole flow in 30 seconds:
 
 1. **Unzip the project** anywhere on your computer.
-2. **Double-click `index.html`** → a table picker appears → pick any table number (e.g. 5).
+2. **Double-click `index.html`** → it asks for your table number (1–8). Or open `index.html?table=3` directly to skip the prompt and land on the menu for Table 3.
 3. Add items to the cart → **Place Order** (order is stored in your browser only).
 4. **Double-click `pos.html`** (keep it open in another tab) → the order appears in the **New Orders** column, with popup + sound.
 5. Click **Accept → Ready → Serve** and watch the customer tab update live.
@@ -130,9 +132,11 @@ You'll get a URL like `https://the-cakery-pos.vercel.app`. Three pages:
 
 ### Step 6: Set up your tables
 1. Open `<your-vercel-url>/qr.html`.
-2. Enter the number of tables in your café.
-3. Download each table's QR as a PNG and print it.
+2. The number of tables defaults to **8** — change it if your café has more or fewer.
+3. Download each table's QR as a PNG (or print the pre-built `qr-codes/all-tables.pdf` that ships in the zip — but **regenerate with your real domain** first, see below).
 4. Place each printed QR on the matching physical table.
+
+> **Important:** the `qr-codes/` folder in the zip was generated with a placeholder URL. After you deploy, open `qr.html` on your live domain and download fresh QRs — those will point to your real URL automatically (the generator uses `window.location`).
 
 ### Step 7: Run the POS
 1. On your POS computer/tablet, open `<your-vercel-url>/pos.html`.
@@ -156,16 +160,25 @@ the-cakery-pos/
 ├── .gitignore
 ├── README.md               # this file
 ├── sql/
-│   └── schema.sql          # Run this in Supabase SQL Editor
+│   ├── schema.sql          # Full schema — run this first (fresh install)
+│   ├── migration-v4.sql     # If you already ran v1–v3, run this (staff + tax)
+│   ├── migration-v5.sql     # Then this (order_type + payment_method columns)
+│   └── migration-v6.sql     # Then this (PRA cash/card rates + FBR bump to 18%)
 ├── css/
 │   ├── customer.css        # Customer page styles
+│   ├── admin.css            # Admin panel styles
 │   └── pos.css             # POS dashboard styles
 ├── js/
 │   ├── supabase-config.js  # ← PASTE YOUR SUPABASE CREDENTIALS HERE
 │   ├── menu-data.js        # All menu items (parsed from your PDFs)
 │   ├── utils.js            # Shared helpers (Supabase calls, formatters)
 │   ├── customer.js         # Customer app logic
+│   ├── menu-store.js       # Menu/brand/tax store + dual-tax calculation
+│   ├── admin.js             # Admin panel logic
 │   └── pos.js              # POS dashboard logic
+├── qr-codes/               # Pre-built QR codes for tables 1–8 (placeholder URL)
+│   ├── table-1.png … table-8.png   # One QR per table
+│   └── all-tables.pdf      # All 8 on one A4 page (print + cut)
 └── assets/                 # (empty — uses emoji icons, no images needed)
 ```
 
@@ -285,6 +298,17 @@ All admin changes (new items, price edits, brand updates) appear instantly on ev
 
 **Sound doesn't play**
 → Browsers block audio until the user interacts with the page. Click anywhere on the POS page first.
+
+---
+
+## 🔖 What's new in v7
+
+- **Take Away removed** — Dine In only now. Every table has its own QR code, so the customer's table is always known from the URL.
+- **Menu auto-opens on QR scan** — no more "Start Order" picker. Scanning the table QR (`index.html?table=N`) lands the customer directly on the menu for that table. A simple "What's your table number?" prompt (1–8) only appears if they open the page with no `?table=N`.
+- **8 table QR codes** — pre-built PNGs for tables 1–8 are in `qr-codes/`, plus an `all-tables.pdf` (one A4 page, print + cut). Regenerate with your real domain by opening `qr.html` on your live deployment.
+- **New order popup moved to top-center** — slides down from the top of the POS screen (was top-right), with a 🔔 bell icon that rings and the bell sound (3 rising beeps). More visible from across the counter.
+
+**v6** (previous) introduced the payment-method-aware PRA tax: FBR 18% on food (cash or card) + PRA 16% on Cash / 8% on Card for beverages. See `sql/migration-v6.sql`.
 
 ---
 

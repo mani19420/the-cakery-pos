@@ -282,15 +282,15 @@ function showNewOrderPopup(order) {
   popup.className = 'popup';
   popup.innerHTML = `
     <div class="popup-head">
-      <div class="popup-title">New order</div>
+      <div class="popup-title"><span class="popup-bell">🔔</span> New order!</div>
       <button class="popup-close">&times;</button>
     </div>
     <div class="popup-body">
-      <strong>#${escapeHTML(order.order_number)}</strong> · Table ${order.table_number}<br>
+      <strong>#${escapeHTML(order.order_number)}</strong> · 🍽️ Table ${order.table_number}<br>
       <span style="color:var(--text-muted);">${itemCount} item${itemCount !== 1 ? 's' : ''} · ${formatPrice(order.total)}</span>
     </div>
     <div class="popup-actions">
-      <button class="popup-btn view">View</button>
+      <button class="popup-btn view">View Order</button>
     </div>
   `;
   POS_DOM.popupContainer.appendChild(popup);
