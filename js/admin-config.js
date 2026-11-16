@@ -10,7 +10,7 @@
 
 const ADMIN_CONFIG = {
   // ⚠️ CHANGE THIS. Choose something only you know.
-  PASSWORD: 'cakery-admin-2026',
+  PASSWORD: 'usman123',
 
   // Session lifetime (ms). Default = 8 hours.
   SESSION_MS: 8 * 60 * 60 * 1000,
