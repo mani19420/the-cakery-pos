@@ -62,7 +62,7 @@ async function init() {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') loadAllOrders();
     });
-    showToast('🧪 Demo mode — orders placed in another tab will appear here', 'info', 6000);
+    showToast('Demo mode — orders placed in another tab will appear here', 'info', 6000);
     if (window.lucide) lucide.createIcons();
     return;
   }
@@ -145,20 +145,15 @@ function showNewOrderPopup(order) {
   popup.className = 'popup';
   popup.innerHTML = `
     <div class="popup-head">
-      <div class="popup-title">
-        <span style="font-size:1.2rem;">🔔</span> New Order!
-      </div>
+      <div class="popup-title">New order</div>
       <button class="popup-close">&times;</button>
     </div>
     <div class="popup-body">
-      <strong style="color:var(--brown);font-size:1rem;">#${escapeHTML(order.order_number)}</strong>
-      &nbsp;·&nbsp;
-      <strong>Table ${order.table_number}</strong>
-      <br>
+      <strong>#${escapeHTML(order.order_number)}</strong> · Table ${order.table_number}<br>
       <span style="color:var(--text-muted);">${itemCount} item${itemCount !== 1 ? 's' : ''} · ${formatPrice(order.total)}</span>
     </div>
     <div class="popup-actions">
-      <button class="popup-btn view">👁 View</button>
+      <button class="popup-btn view">View</button>
     </div>
   `;
   POS_DOM.popupContainer.appendChild(popup);
@@ -243,8 +238,8 @@ function renderDashboard() {
     const list = POS_DOM.lists[status];
     POS_DOM.counts[status].textContent = groups[status].length;
     if (groups[status].length === 0) {
-      const empties = { received: ['📝','No new orders'], accepted: ['👨‍🍳','Nothing cooking'], ready: ['🍽️','Nothing ready'] };
-      list.innerHTML = `<div class="column-empty"><span class="emo">${empties[status][0]}</span>${empties[status][1]}</div>`;
+      const empties = { received: 'No new orders', accepted: 'Nothing in progress', ready: 'Nothing ready' };
+      list.innerHTML = `<div class="column-empty">${empties[status]}</div>`;
     } else {
       list.innerHTML = groups[status].map(o => createOrderCardHTML(o)).join('');
     }
@@ -296,7 +291,7 @@ function createOrderCardHTML(order) {
       <button class="btn-action btn-serve" data-serve="${order.id}">Serve</button>
     `;
   } else if (order.status === 'served') {
-    actions = `<span class="served-badge">✓ Served</span>`;
+    actions = `<span class="served-badge">Served</span>`;
   }
 
   return `
@@ -316,7 +311,7 @@ function createOrderCardHTML(order) {
           </div>
         `).join('')}
       </div>
-      ${order.instructions ? `<div class="order-instructions">📝 "${escapeHTML(order.instructions)}"</div>` : ''}
+      ${order.instructions ? `<div class="order-instructions">"${escapeHTML(order.instructions)}"</div>` : ''}
       <div class="order-footer">
         <span class="order-total">${formatPrice(order.total)}</span>
         <div style="display:flex;gap:6px;">${actions}</div>
@@ -343,7 +338,7 @@ function renderSidebarStats() {
 
 function renderHistory() {
   if (POS_STATE.servedOrders.length === 0) {
-    POS_DOM.historyList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:30px 10px;font-size:0.85rem;">No served orders yet.</div>';
+    POS_DOM.historyList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:30px 10px;font-size:0.82rem;">No served orders yet.</div>';
     return;
   }
   POS_DOM.historyList.innerHTML = POS_STATE.servedOrders.map(o => `
@@ -396,15 +391,15 @@ function showBill(order) {
         `).join('')}
       </tbody>
     </table>
-    ${order.instructions ? `<div style="font-size:0.8rem;color:var(--warning);margin:8px 0;font-style:italic;">📝 ${escapeHTML(order.instructions)}</div>` : ''}
+    ${order.instructions ? `<div style="font-size:0.78rem;color:var(--text-muted);margin:8px 0;font-style:italic;">Note: ${escapeHTML(order.instructions)}</div>` : ''}
     <div class="bill-totals">
       <div class="row"><span>Subtotal</span><span>${formatPrice(order.subtotal)}</span></div>
       <div class="row"><span>GST</span><span>${formatPrice(order.tax)}</span></div>
       <div class="row grand"><span>Grand Total</span><span>${formatPrice(order.total)}</span></div>
     </div>
     <div class="bill-footer">
-      <p>Thank you for dining with us!</p>
-      <p style="margin-top:4px;">Cash · Visa · Mastercard accepted</p>
+      <p>Thank you for dining with us</p>
+      <p style="margin-top:3px;">Cash · Card accepted</p>
     </div>
   `;
   POS_DOM.billModal.classList.add('open');
@@ -421,7 +416,7 @@ function printBill(order) {
   w.document.write(`
     <!DOCTYPE html><html><head><title>Bill #${order.order_number}</title>
     <style>
-      body { font-family: 'Courier New', monospace; padding: 16px; color: #2A2017; }
+      body { font-family: 'Courier New', monospace; padding: 16px; color: #1C1C1A; }
       h1 { font-size: 1.4rem; text-align: center; margin: 0; }
       .tag { text-align: center; font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase; }
       .meta { font-size: 0.78rem; margin: 12px 0; }

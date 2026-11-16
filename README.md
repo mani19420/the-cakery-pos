@@ -202,6 +202,37 @@ To use the real logo, replace `assets/` placeholder and update `index.html`/`pos
 
 ---
 
+## ⚙️ Admin Panel (`admin.html`) — NEW
+
+A built-in admin panel where you can manage **everything** without touching code: menu items (with images, prices, sale prices, descriptions, categories), view sales analytics, manage brand identity (logo, name, tagline, accent color), and browse all past orders.
+
+### Login
+- Open `<your-url>/admin.html`
+- Default password: `cakery-admin-2026`
+- ⚠️ **CHANGE IT** in `js/admin-config.js` before going live (search for `PASSWORD:`)
+
+### Features
+- **📊 Dashboard** — Total revenue, order count, average order, top item, 7-day revenue chart, top-selling items list, recent orders table. Filter by Today / 7 days / 30 days / All.
+- **🍴 Menu** — Full CRUD for menu items. Each item supports: name, category, price, original price (for sales), description, emoji, **real image upload** (stored as base64 in DB), popular flag, availability toggle (hide items temporarily), search + category + availability filters.
+- **🧾 Orders** — Browse all past orders with status filter, view items/total/timestamp, delete individual orders.
+- **🎨 Brand** — Edit brand name, tagline, logo emoji, accent color, and **upload a real logo image** (PNG/JPG, stored as base64). Changes appear instantly on customer menu and POS.
+
+### First-time setup
+1. **Run the updated SQL schema** in Supabase SQL Editor (the `sql/schema.sql` in this zip). This creates two new tables: `menu_items` and `brand_settings`. Safe to re-run.
+2. **Seed the menu** — open Admin → Menu tab → click **📥 Seed from local**. This copies all 130 default items from `js/menu-data.js` into your database so you can start editing them.
+3. **Upload your logo** — Admin → Brand tab → choose file → Upload → Save Brand.
+4. **Customize items** — Edit prices, add real photos, mark popular items, toggle availability.
+
+### How images work
+- Item images and logo are stored as **base64 strings** directly in the Supabase `menu_items.image_url` and `brand_settings.logo_url` columns. No separate storage bucket needed.
+- Max file size: ~1.2 MB per image (sufficient for square product photos).
+- Customer menu shows the photo automatically when present; falls back to emoji otherwise.
+
+### Real-time sync
+All admin changes (new items, price edits, brand updates) appear instantly on every open customer menu and POS screen via Supabase realtime — no refresh needed.
+
+---
+
 ## 🔒 Security Notes
 
 - The Supabase **anon key** is designed to be public — it's safe in frontend code.

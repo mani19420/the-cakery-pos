@@ -291,21 +291,14 @@ function showToast(message, type = 'success', duration = 3000) {
   if (!container) {
     container = document.createElement('div');
     container.id = 'toastContainer';
-    container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;';
+    container.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;width:max-content;max-width:calc(100vw - 40px);';
     document.body.appendChild(container);
   }
-  const colors = {
-    success: '#16a34a',
-    error: '#dc2626',
-    warning: '#d97706',
-    info: '#2563eb'
-  };
   const toast = document.createElement('div');
   toast.style.cssText = `
-    background:${colors[type] || colors.success};
-    color:white;padding:12px 20px;border-radius:8px;
-    box-shadow:0 4px 12px rgba(0,0,0,0.15);font-size:14px;font-weight:500;
-    max-width:320px;animation:toastIn 0.3s ease;
+    background:#1C1C1A;color:#fff;padding:11px 18px;border-radius:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.18);font-size:0.85rem;font-weight:500;
+    max-width:100%;animation:toastIn 0.25s ease;text-align:center;
   `;
   toast.textContent = message;
   container.appendChild(toast);

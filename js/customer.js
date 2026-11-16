@@ -66,11 +66,10 @@ function showTablePicker() {
   modal.innerHTML = `
     <div class="modal-backdrop"></div>
     <div class="modal-card">
-      <div class="modal-emoji">📍</div>
-      <h3 class="modal-title">Select Your Table</h3>
-      <p class="modal-text" style="margin-bottom:16px;">Normally you'd scan the QR code on your table. For preview, pick a table number:</p>
-      <input type="number" id="tablePickerInput" min="1" max="50" value="${picked}"
-             style="width:100%;padding:14px;font-size:1.4rem;text-align:center;border:2px solid var(--black);border-radius:12px;font-weight:700;margin-bottom:16px;">
+      <div class="modal-eyebrow">Table</div>
+      <h3 class="modal-title">Where are you sitting?</h3>
+      <p class="modal-text" style="margin-bottom:16px;">Enter your table number to start ordering.</p>
+      <input type="number" id="tablePickerInput" min="1" max="50" value="${picked}">
       <button class="modal-btn" id="tablePickerGo" style="width:100%;">Start Ordering</button>
     </div>
   `;
@@ -88,10 +87,10 @@ function showTablePicker() {
 }
 
 // Boot the app once we know the table number
-function startApp() {
+async function startApp() {
   if (DOM.tableBadge) {
     DOM.tableBadge.style.display = 'inline-flex';
-    DOM.tableBadge.innerHTML = '<i data-lucide="layout-grid" style="width:14px;height:14px;"></i> Table ' + STATE.table;
+    DOM.tableBadge.innerHTML = 'Table ' + STATE.table;
   }
 
   // 2. Load saved cart & orders from localStorage
@@ -100,6 +99,10 @@ function startApp() {
     STATE.cart = saved.cart || [];
     STATE.orders = saved.orders || [];
   }
+
+  // 2b. Load menu + brand from Supabase (or cache/fallback)
+  await Promise.all([loadMenu(), loadBrand()]);
+  applyBrandToUI();
 
   // 3. Render UI
   renderCategories();
@@ -125,9 +128,31 @@ function startApp() {
   // 8. Inform about demo mode (Supabase not configured)
   if (!isSupabaseReady()) {
     setTimeout(() => {
-      showToast('🧪 Demo mode — orders are stored in this browser only', 'info', 4000);
+      showToast('Demo mode — orders are saved in this browser only', 'info', 4000);
     }, 1500);
   }
+
+  // 9. Live menu + brand updates (admin changes appear instantly)
+  subscribeMenu(() => renderMenu());
+  subscribeBrand(() => { applyBrandToUI(); renderMenu(); });
+}
+
+// Apply brand settings to the UI (name, logo, tagline)
+function applyBrandToUI() {
+  const b = getBrand();
+  document.title = (b.brandName || 'The Cakery') + ' — ' + (b.tagline || 'Order From Your Table');
+  // Brand name in header
+  document.querySelectorAll('[data-brand-name]').forEach(el => { el.textContent = b.brandName || 'The Cakery'; });
+  // Logo / emoji
+  document.querySelectorAll('[data-brand-logo]').forEach(el => {
+    if (b.logoUrl) {
+      el.innerHTML = '<img src="' + escapeHTML(b.logoUrl) + '" alt="logo" style="height:1.4em;width:1.4em;object-fit:contain;vertical-align:middle">';
+    } else {
+      el.textContent = b.logoEmoji || '🧁';
+    }
+  });
+  // Tagline / subtitle
+  document.querySelectorAll('[data-brand-tagline]').forEach(el => { el.textContent = b.tagline || ''; });
 }
 
 // ----------------------------------------------------------------
@@ -137,9 +162,7 @@ function renderCategories() {
   if (!DOM.categoryTabs) return;
   DOM.categoryTabs.innerHTML = CATEGORIES.map(c => `
     <button class="cat-tab ${c.id === STATE.selectedCategory ? 'active' : ''}"
-            data-cat="${c.id}">
-      <span>${c.icon}</span><span>${c.name}</span>
-    </button>
+            data-cat="${c.id}">${c.name}</button>
   `).join('');
 }
 
@@ -147,7 +170,7 @@ function renderCategories() {
 // RENDER: Menu
 // ----------------------------------------------------------------
 function renderMenu() {
-  let items = [...MENU_DATA];
+  let items = getMenu().filter(i => i.available !== false);
 
   if (STATE.selectedCategory !== 'all') {
     items = items.filter(i => i.category === STATE.selectedCategory);
@@ -168,18 +191,24 @@ function renderMenu() {
   }
   DOM.noResults.classList.add('hidden');
 
-  DOM.menuGrid.innerHTML = items.map(item => `
+  DOM.menuGrid.innerHTML = items.map(item => {
+    const imgBlock = item.imageUrl
+      ? '<div class="menu-card-image"><img src="' + escapeHTML(item.imageUrl) + '" alt="' + escapeHTML(item.name) + '"></div>'
+      : '<div class="menu-card-image">' + escapeHTML(item.emoji || '🍽️') + '</div>';
+    const priceBlock = item.originalPrice
+      ? '<span class="menu-card-price"><span class="orig">' + formatPrice(item.originalPrice) + '</span> ' + formatPrice(item.price) + '</span>'
+      : '<span class="menu-card-price">' + formatPrice(item.price) + '</span>';
+    return `
     <div class="menu-card" data-id="${item.id}">
-      ${item.popular ? '<span class="menu-card-popular">Popular</span>' : ''}
-      <div class="menu-card-image">${item.emoji || '🍽️'}</div>
-      <div class="menu-card-name">${escapeHTML(item.name)}</div>
+      ${imgBlock}
+      <div class="menu-card-name">${escapeHTML(item.name)}${item.popular ? '<span class="menu-card-popular">Popular</span>' : ''}</div>
       <div class="menu-card-desc">${escapeHTML(item.desc)}</div>
       <div class="menu-card-footer">
-        <span class="menu-card-price">${formatPrice(item.price)}</span>
-        <button class="btn-add" data-add="${item.id}">Add +</button>
+        ${priceBlock}
+        <button class="btn-add" data-add="${item.id}">Add</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   if (window.lucide) lucide.createIcons();
 }
@@ -188,7 +217,7 @@ function renderMenu() {
 // CART
 // ----------------------------------------------------------------
 function addToCart(itemId) {
-  const item = MENU_DATA.find(i => i.id === itemId);
+  const item = getMenu().find(i => i.id === itemId);
   if (!item) return;
   const existing = STATE.cart.find(i => i.id === itemId);
   if (existing) existing.qty++;
@@ -226,7 +255,6 @@ function updateCart() {
   if (DOM.cartSummary) DOM.cartSummary.style.display = isEmpty ? 'none' : 'block';
   if (DOM.cartItems)  DOM.cartItems.innerHTML = isEmpty ? '' : STATE.cart.map(item => `
     <div class="cart-item">
-      <div class="cart-item-emoji">${item.emoji || '🍽️'}</div>
       <div class="cart-item-info">
         <div class="cart-item-name">${escapeHTML(item.name)}</div>
         <div class="cart-item-price">${formatPrice(item.price)} each</div>
@@ -369,10 +397,10 @@ function handleOrderUpdate(payload) {
   // Show toast for meaningful changes
   if (oldStatus !== updated.status) {
     const msgs = {
-      accepted: '👨‍🍳 Order #' + order.order_number + ' is being prepared',
-      ready:    '🍽️ Order #' + order.order_number + ' is ready!',
-      served:   '✅ Order #' + order.order_number + ' served. Enjoy!',
-      rejected:  '❌ Order #' + order.order_number + ' was rejected.'
+      accepted: 'Order #' + order.order_number + ' is being prepared',
+      ready:    'Order #' + order.order_number + ' is ready',
+      served:   'Order #' + order.order_number + ' served',
+      rejected:  'Order #' + order.order_number + ' was rejected'
     };
     if (msgs[updated.status]) showToast(msgs[updated.status], updated.status === 'rejected' ? 'error' : 'success', 4000);
   }
@@ -397,8 +425,7 @@ function renderOrdersList() {
   if (STATE.orders.length === 0) {
     DOM.ordersList.innerHTML = `
       <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
-        <div style="font-size:2.5rem;margin-bottom:8px;">📋</div>
-        <p>No orders yet. Place your first order!</p>
+        <p>No orders yet.</p>
       </div>`;
     return;
   }
@@ -416,7 +443,7 @@ function renderOrdersList() {
           <div style="text-align:right;">
             ${isRejected
               ? '<span style="color:var(--danger);font-weight:600;font-size:0.9rem;">Rejected</span>'
-              : `<span style="color:var(--gold-dark);font-weight:600;font-size:0.9rem;">Table ${order.table_number}</span>`}
+              : `<span style="color:var(--text-muted);font-weight:600;font-size:0.9rem;">Table ${order.table_number}</span>`}
           </div>
         </div>
         ${!isRejected ? `
@@ -437,7 +464,7 @@ function renderOrdersList() {
               <span>${formatPrice(item.price * item.qty)}</span>
             </div>
           `).join('')}
-          ${order.instructions ? `<div style="margin-top:8px;font-size:0.85rem;color:var(--text-muted);font-style:italic;">📝 "${escapeHTML(order.instructions)}"</div>` : ''}
+          ${order.instructions ? `<div style="margin-top:8px;font-size:0.82rem;color:var(--text-muted);font-style:italic;">Note: "${escapeHTML(order.instructions)}"</div>` : ''}
           <div class="track-total">
             <span>Total</span>
             <span>${formatPrice(order.total)}</span>

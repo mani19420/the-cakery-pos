@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Cakery — Admin Panel</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- ===================== LOGIN SCREEN ===================== -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">🧁</div>
+      <div class="login-eyebrow">Admin Panel</div>
+      <h1 class="login-title">The Cakery</h1>
+      <p class="login-sub">Enter your password to manage the menu, sales, and brand.</p>
+      <form id="loginForm" autocomplete="off">
+        <input type="password" id="loginPassword" placeholder="Admin password" autocomplete="current-password" required>
+        <button type="submit" class="login-btn">Unlock</button>
+        <div id="loginError" class="login-error"></div>
+      </form>
+      <div class="login-hint">Default password is set in <code>js/admin-config.js</code></div>
+    </div>
+  </div>
+
+  <!-- ===================== APP SHELL ===================== -->
+  <div id="adminApp" class="admin-app" hidden>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <span class="logo-emoji" id="brandEmoji">🧁</span>
+        <span class="brand-name" id="brandName">The Cakery</span>
+        <span class="brand-sep">/</span>
+        <span class="brand-sub">Admin</span>
+      </div>
+      <nav class="topbar-tabs">
+        <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+        <button class="tab" data-tab="menu">🍴 Menu</button>
+        <button class="tab" data-tab="orders">🧾 Orders</button>
+        <button class="tab" data-tab="brand">🎨 Brand</button>
+      </nav>
+      <div class="topbar-actions">
+        <a href="pos.html" class="icon-link" title="Open POS">🖥️ POS</a>
+        <a href="qr.html" class="icon-link" title="QR Generator">🔲 QR</a>
+        <a href="index.html" class="icon-link" title="View Menu">📱 Menu</a>
+        <button id="logoutBtn" class="icon-link danger">⏻ Logout</button>
+      </div>
+    </header>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <span id="dbStatus" class="status-indicator offline"><span class="status-dot"></span>Checking…</span>
+      <span class="status-sep">·</span>
+      <span id="menuCount" class="status-meta">0 items</span>
+      <span class="status-sep">·</span>
+      <span id="lastSync" class="status-meta">Never synced</span>
+    </div>
+
+    <!-- ===================== DASHBOARD TAB ===================== -->
+    <section class="tab-panel active" id="tab-dashboard">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Overview</div>
+          <h2 class="panel-title">Dashboard</h2>
+        </div>
+        <div class="range-pills">
+          <button class="range-pill active" data-range="today">Today</button>
+          <button class="range-pill" data-range="7d">7 days</button>
+          <button class="range-pill" data-range="30d">30 days</button>
+          <button class="range-pill" data-range="all">All</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Revenue</div>
+          <div class="kpi-value" id="kpiRevenue">Rs 0</div>
+          <div class="kpi-sub" id="kpiRevenueSub">from <b>0</b> orders</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Orders</div>
+          <div class="kpi-value" id="kpiOrders">0</div>
+          <div class="kpi-sub" id="kpiOrdersSub">accepted + served</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg Order</div>
+          <div class="kpi-value" id="kpiAvg">Rs 0</div>
+          <div class="kpi-sub">per order</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Top Item</div>
+          <div class="kpi-value" id="kpiTopItem" style="font-size:1.4rem">—</div>
+          <div class="kpi-sub" id="kpiTopItemSub">no sales yet</div>
+        </div>
+      </div>
+
+      <div class="dash-row">
+        <div class="dash-card dash-card-wide">
+          <div class="card-head">
+            <h3>Revenue (last 7 days)</h3>
+            <span class="card-meta" id="chartMeta">No data</span>
+          </div>
+          <div class="chart-wrap" id="revenueChart">
+            <div class="chart-empty">No sales recorded yet. Place a test order to see the chart.</div>
+          </div>
+        </div>
+        <div class="dash-card">
+          <div class="card-head"><h3>Top Items</h3></div>
+          <div class="top-items-list" id="topItemsList">
+            <div class="chart-empty">No item sales yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <div class="card-head">
+          <h3>Recent Orders</h3>
+          <span class="card-meta" id="recentCount">0 orders</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="recentOrdersTable">
+            <thead>
+              <tr>
+                <th>Order #</th><th>Table</th><th>Items</th><th>Total</th>
+                <th>Status</th><th>Time</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="6" class="empty-row">No orders yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== MENU TAB ===================== -->
+    <section class="tab-panel" id="tab-menu">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Menu Items</div>
+          <h2 class="panel-title">Manage Menu</h2>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-secondary" id="seedMenuBtn">📥 Seed from local</button>
+          <button class="btn-primary" id="addItemBtn">+ Add item</button>
+        </div>
+      </div>
+
+      <div class="menu-toolbar">
+        <input type="text" id="menuSearch" placeholder="Search by name or id…">
+        <select id="menuFilterCat">
+          <option value="all">All categories</option>
+        </select>
+        <select id="menuFilterAvail">
+          <option value="all">All items</option>
+          <option value="available">Available only</option>
+          <option value="unavailable">Hidden only</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table" id="menuTable">
+          <thead>
+            <tr>
+              <th style="width:60px">Image</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Sale</th>
+              <th>Status</th>
+              <th style="width:140px">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="empty-row">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== ORDERS TAB ===================== -->
+    <section class="tab-panel" id="tab-orders">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">All Orders</div>
+          <h2 class="panel-title">Order History</h2>
+        </div>
+        <div class="panel-actions">
+          <select id="ordersStatusFilter">
+            <option value="all">All statuses</option>
+            <option value="received">Received</option>
+            <option value="accepted">Accepted</option>
+            <option value="ready">Ready</option>
+            <option value="served">Served</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="allOrdersTable">
+          <thead>
+            <tr>
+              <th>Order #</th><th>Table</th><th>Items</th><th>Subtotal</th>
+              <th>Tax</th><th>Total</th><th>Status</th><th>Created</th>
+              <th style="width:80px">Action</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="9" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== BRAND TAB ===================== -->
+    <section class="tab-panel" id="tab-brand">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Brand Identity</div>
+          <h2 class="panel-title">Brand & Logo</h2>
+        </div>
+      </div>
+
+      <div class="brand-grid">
+        <div class="brand-form-card">
+          <h3>Brand Details</h3>
+          <label>Brand Name
+            <input type="text" id="brandNameInput" maxlength="40">
+          </label>
+          <label>Tagline
+            <input type="text" id="brandTagline" maxlength="80">
+          </label>
+          <label>Logo Emoji (used when no logo image)
+            <input type="text" id="brandEmojiInput" maxlength="6">
+          </label>
+          <label>Accent Color
+            <input type="color" id="brandAccentColor" value="#1C1C1A">
+          </label>
+          <button class="btn-primary" id="saveBrandBtn">Save Brand</button>
+        </div>
+
+        <div class="brand-form-card">
+          <h3>Logo Image</h3>
+          <p class="form-hint">Upload a PNG or JPG (square, ~200×200px recommended). Stored as base64 in your database.</p>
+          <div class="logo-preview" id="logoPreview">
+            <span class="logo-placeholder">No logo uploaded</span>
+          </div>
+          <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp">
+          <div class="logo-actions">
+            <button class="btn-secondary" id="uploadLogoBtn">Upload</button>
+            <button class="btn-ghost" id="clearLogoBtn">Remove</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===================== ITEM MODAL ===================== -->
+  <div class="modal" id="itemModal">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-eyebrow" id="itemModalEyebrow">New Item</div>
+        <h3 class="modal-title" id="itemModalTitle">Add Menu Item</h3>
+        <button class="modal-x" data-close>×</button>
+      </div>
+      <form id="itemForm" class="item-form">
+        <div class="form-row">
+          <label>ID (unique, lowercase, e.g. br01)
+            <input type="text" id="itemId" required pattern="[a-z0-9_-]+" maxlength="20">
+          </label>
+          <label>Category
+            <select id="itemCategory" required></select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Name
+            <input type="text" id="itemName" required maxlength="80">
+          </label>
+          <label>Emoji (optional)
+            <input type="text" id="itemEmoji" maxlength="6" value="🍽️">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Price (Rs)
+            <input type="number" id="itemPrice" required min="0" step="10">
+          </label>
+          <label>Original Price (for "on sale" — optional)
+            <input type="number" id="itemOriginalPrice" min="0" step="10">
+          </label>
+        </div>
+        <label>Description
+          <textarea id="itemDesc" rows="2" maxlength="200"></textarea>
+        </label>
+        <label>Image (optional — overrides emoji)
+          <input type="file" id="itemImage" accept="image/png,image/jpeg,image/webp">
+          <div class="img-preview" id="itemImgPreview"></div>
+        </label>
+        <div class="form-row">
+          <label class="checkbox">
+            <input type="checkbox" id="itemPopular"> Mark as Popular ⭐
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="itemAvailable" checked> Available
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" data-close>Cancel</button>
+          <button type="submit" class="btn-primary">Save Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== TOAST ===================== -->
+  <div id="toastContainer"></div>
+
+  <!-- ===================== SCRIPTS ===================== -->
+  <script src="js/supabase-config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/menu-data.js"></script>
+  <script src="js/menu-store.js"></script>
+  <script src="js/admin-config.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

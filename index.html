@@ -4,12 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>The Cakery — Order From Your Table</title>
-  <meta name="description" content="Patisserie · Boulangerie · Cafè. Scan, order, and track your food in real time.">
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="description" content="Order and track from your table.">
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/customer.css">
@@ -24,47 +19,41 @@
   <nav class="navbar">
     <div class="navbar-inner">
       <div class="brand">
-        <div class="brand-logo">TC</div>
         <div class="brand-text">
-          <span class="brand-name">The Cakery</span>
-          <span class="brand-tagline">Patisserie · Boulangerie · Cafè</span>
+          <span class="brand-emoji" data-brand-logo>🧁</span>
+          <span class="brand-name" data-brand-name>The Cakery</span>
         </div>
       </div>
       <div class="nav-actions">
         <span id="tableBadge" class="table-badge" style="display:none;">Table —</span>
-        <button id="trackBtn" class="btn-cart" style="background:var(--cream-deep);color:var(--brown);">
-          <i data-lucide="list"></i> <span class="btn-text">My Orders</span>
-          <span id="activeBadge" class="cart-count hidden" style="background:var(--brown);">0</span>
+        <button id="trackBtn" class="btn-ghost">
+          <span class="btn-text">Orders</span>
+          <span id="activeBadge" class="cart-count hidden">0</span>
         </button>
         <button id="cartBtn" class="btn-cart">
-          <i data-lucide="shopping-bag"></i> <span class="btn-text">Cart</span>
+          <span class="btn-text">Cart</span>
           <span id="cartCount" class="cart-count hidden">0</span>
         </button>
       </div>
     </div>
   </nav>
 
-  <!-- ===================== HERO ===================== -->
-  <section class="hero">
-    <div class="hero-eyebrow">Welcome</div>
-    <h1 class="hero-title">Order From Your Table</h1>
-    <p class="hero-sub">Freshly baked patisserie, signature cakes, barista coffee and more — sent straight to our POS.</p>
-  </section>
-
   <!-- ===================== MENU ===================== -->
   <section class="menu-section">
     <div class="menu-container">
-      <div class="search-box">
-        <span class="search-icon"><i data-lucide="search"></i></span>
-        <input type="search" id="searchInput" placeholder="Search dishes, coffees, cakes..." aria-label="Search menu">
+      <div class="menu-head">
+        <h1 class="menu-title">Menu</h1>
+        <div class="search-box">
+          <span class="search-icon"><i data-lucide="search"></i></span>
+          <input type="search" id="searchInput" placeholder="Search the menu" aria-label="Search menu">
+        </div>
       </div>
 
       <div id="categoryTabs" class="category-tabs"></div>
 
       <div id="menuGrid" class="menu-grid"></div>
       <div id="noResults" class="no-results hidden">
-        <div style="font-size:2.5rem;margin-bottom:8px;">🔍</div>
-        <p>No items found. Try a different search.</p>
+        <p>No items match your search.</p>
       </div>
     </div>
   </section>
@@ -79,9 +68,7 @@
 
     <div id="cartItems" class="cart-items"></div>
     <div id="cartEmpty" class="cart-empty">
-      <div class="cart-empty-emoji">🛍️</div>
-      <p>Your cart is empty</p>
-      <p style="font-size:0.85rem;">Add some delicious items!</p>
+      <p>Your cart is empty.</p>
     </div>
 
     <div id="cartSummary" class="cart-summary" style="display:none;">
@@ -100,11 +87,10 @@
   <div id="successModal" class="modal">
     <div class="modal-backdrop"></div>
     <div class="modal-card">
-      <div class="modal-emoji">✅</div>
-      <h3 class="modal-title">Order Placed!</h3>
+      <div class="modal-eyebrow">Order placed</div>
       <div class="modal-order-num" id="orderNumDisplay">TC-00000</div>
-      <p class="modal-text">Your order has been sent to the kitchen. We'll let you know when it's ready!</p>
-      <button class="modal-btn" onclick="document.getElementById('successModal').classList.remove('open')">Track Order</button>
+      <p class="modal-text">Your order went to the kitchen. Track its status under Orders.</p>
+      <button class="modal-btn" onclick="document.getElementById('successModal').classList.remove('open')">Done</button>
     </div>
   </div>
 
@@ -113,7 +99,7 @@
     <div class="modal-backdrop" onclick="document.getElementById('ordersModal').classList.remove('open')"></div>
     <div class="modal-card" style="max-width:600px;text-align:left;max-height:85vh;overflow-y:auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-        <h3 class="modal-title" style="margin:0;">My Orders</h3>
+        <h3 class="modal-title" style="margin:0;">Orders</h3>
         <button class="btn-close" onclick="document.getElementById('ordersModal').classList.remove('open')">&times;</button>
       </div>
       <div id="ordersList"></div>
@@ -122,14 +108,14 @@
 
   <!-- ===================== FOOTER ===================== -->
   <footer class="footer">
-    <p>© 2026 The Cakery · Patisserie · Boulangerie · Cafè</p>
-    <p style="margin-top:4px;font-size:0.78rem;">All prices in PKR · Exclusive of GST</p>
+    <p>The Cakery · Prices in PKR, exclusive of GST</p>
   </footer>
 
   <!-- ===================== SCRIPTS ===================== -->
   <script src="js/supabase-config.js"></script>
   <script src="js/menu-data.js"></script>
   <script src="js/utils.js"></script>
+  <script src="js/menu-store.js"></script>
   <script src="js/customer.js"></script>
 </body>
 </html>

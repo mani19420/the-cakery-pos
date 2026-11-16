@@ -17,8 +17,8 @@
 // =================================================================
 // 👇 REPLACE THESE TWO VALUES WITH YOUR OWN SUPABASE CREDENTIALS
 // =================================================================
-const SUPABASE_URL = https://cucnlraokynuesehjmav.supabase.co
-const SUPABASE_ANON_KEY = sb_publishable_FqwYhiLyxpF62xBhEeqy-g_iMjGGQsV
+const SUPABASE_URL = 'https://cucnlraokynuesehjmav.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_FqwYhiLyxpF62xBhEeqy-g_iMjGGQsV';
 // =================================================================
 
 // Detect if Supabase is configured

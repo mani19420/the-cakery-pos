@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Cakery — POS Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/pos.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -17,11 +14,9 @@
     <!-- ===================== TOPBAR ===================== -->
     <header class="topbar">
       <div class="topbar-brand">
-        <div class="brand-logo-sm">TC</div>
-        <div>
-          <div class="brand-name-sm">The Cakery</div>
-          <div class="brand-sub-sm">POS Dashboard</div>
-        </div>
+        <span class="brand-name-sm">The Cakery</span>
+        <span class="brand-sep">/</span>
+        <span class="brand-sub-sm">Orders</span>
       </div>
 
       <div class="topbar-search">
@@ -66,10 +61,7 @@
             <span class="column-count" id="cnt-received">0</span>
           </div>
           <div class="column-list" id="list-received">
-            <div class="column-empty">
-              <span class="emo">📝</span>
-              No new orders
-            </div>
+            <div class="column-empty">No new orders</div>
           </div>
         </section>
 
@@ -82,10 +74,7 @@
             <span class="column-count" id="cnt-accepted">0</span>
           </div>
           <div class="column-list" id="list-accepted">
-            <div class="column-empty">
-              <span class="emo">👨‍🍳</span>
-              Nothing cooking
-            </div>
+            <div class="column-empty">Nothing in progress</div>
           </div>
         </section>
 
@@ -98,10 +87,7 @@
             <span class="column-count" id="cnt-ready">0</span>
           </div>
           <div class="column-list" id="list-ready">
-            <div class="column-empty">
-              <span class="emo">🍽️</span>
-              Nothing ready
-            </div>
+            <div class="column-empty">Nothing ready</div>
           </div>
         </section>
       </div>
@@ -116,41 +102,26 @@
           <div id="tab-stats">
             <h3 class="sidebar-section-title">Today's Summary</h3>
             <div class="stat-card">
-              <div>
-                <div class="label">Total Orders</div>
-                <div class="value" id="sumTotalOrders">0</div>
-              </div>
-              <div style="font-size:2rem;">📦</div>
+              <div class="label">Total Orders</div>
+              <div class="value" id="sumTotalOrders">0</div>
             </div>
             <div class="stat-card">
-              <div>
-                <div class="label">Total Revenue</div>
-                <div class="value" id="sumRevenue">Rs 0</div>
-              </div>
-              <div style="font-size:2rem;">💰</div>
+              <div class="label">Total Revenue</div>
+              <div class="value" id="sumRevenue">Rs 0</div>
             </div>
             <div class="stat-card">
-              <div>
-                <div class="label">Average Order</div>
-                <div class="value" id="sumAvg">Rs 0</div>
-              </div>
-              <div style="font-size:2rem;">📊</div>
+              <div class="label">Average Order</div>
+              <div class="value" id="sumAvg">Rs 0</div>
             </div>
             <div class="stat-card">
-              <div>
-                <div class="label">Active Tables</div>
-                <div class="value" id="sumTables">0</div>
-              </div>
-              <div style="font-size:2rem;">🪑</div>
+              <div class="label">Active Tables</div>
+              <div class="value" id="sumTables">0</div>
             </div>
 
-            <h3 class="sidebar-section-title" style="margin-top:24px;">Quick Links</h3>
-            <a href="qr.html" target="_blank" style="display:block;padding:10px 12px;background:var(--cream);border-radius:8px;text-decoration:none;color:var(--brown);font-weight:600;font-size:0.85rem;margin-bottom:8px;">
-              🔲 Generate Table QR Codes
-            </a>
-            <a href="index.html" target="_blank" style="display:block;padding:10px 12px;background:var(--cream);border-radius:8px;text-decoration:none;color:var(--brown);font-weight:600;font-size:0.85rem;">
-              🍽️ Open Customer Menu
-            </a>
+            <h3 class="sidebar-section-title" style="margin-top:24px;">Links</h3>
+            <a href="admin.html" target="_blank" class="quick-link">⚙️ Admin Panel</a>
+            <a href="qr.html" target="_blank" class="quick-link">Table QR Codes</a>
+            <a href="index.html" target="_blank" class="quick-link">Customer Menu</a>
           </div>
 
           <div id="tab-history" style="display:none;">
@@ -175,7 +146,7 @@
     <div class="modal-card">
       <div class="bill" id="billContent"><!-- filled by JS --></div>
       <div class="bill-actions">
-        <button class="bill-btn print" id="printBillBtn">🖨️ Print</button>
+        <button class="bill-btn print" id="printBillBtn">Print</button>
         <button class="bill-btn close" onclick="document.getElementById('billModal').classList.remove('open')">Close</button>
       </div>
     </div>
@@ -187,6 +158,7 @@
   <script src="js/supabase-config.js"></script>
   <script src="js/menu-data.js"></script>
   <script src="js/utils.js"></script>
+  <script src="js/menu-store.js"></script>
   <script src="js/pos.js"></script>
 </body>
 </html>

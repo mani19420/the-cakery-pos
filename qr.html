@@ -4,34 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Cakery — Table QR Generator</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --black: #0A0A0A;
-      --gray-900: #1A1A1A;
-      --gray-700: #3D3D3D;
-      --gray-600: #525252;
-      --gray-500: #6B6B6B;
-      --gray-400: #8A8A8A;
-      --gray-300: #C8C8C8;
-      --gray-200: #E5E5E5;
-      --gray-100: #F2F2F2;
-      --gray-50:  #FAFAFA;
-      --white: #FFFFFF;
-      --bg: var(--gray-50);
-      --border: var(--gray-200);
-      --text: var(--black);
-      --text-muted: var(--gray-600);
+      --bg: #FCFCFB;
+      --surface: #FFFFFF;
+      --border: #E8E8E6;
+      --border-strong: #D6D6D3;
+      --text: #1C1C1A;
+      --text-muted: #6E6E69;
+      --text-faint: #A3A39D;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Poppins', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
+      font-size: 15px;
       min-height: 100vh;
-      padding: 20px;
+      padding: 24px 20px;
     }
     .header {
       max-width: 1100px;
@@ -44,65 +34,52 @@
       padding-bottom: 20px;
       border-bottom: 1px solid var(--border);
     }
-    .brand-row { display: flex; align-items: center; gap: 12px; }
-    .brand-logo {
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      background: var(--black);
-      color: var(--white); font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Playfair Display', serif;
-      font-size: 1.2rem;
-      letter-spacing: 0.5px;
-    }
-    .brand-name { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: var(--black); letter-spacing: 0.5px; }
-    .brand-sub { font-size: 0.72rem; color: var(--gray-500); letter-spacing: 1.5px; text-transform: uppercase; font-weight: 500; }
+    .brand-name { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+    .brand-sub { font-size: 0.82rem; color: var(--text-muted); }
 
     .controls {
-      display: flex; align-items: center; gap: 12px;
-      background: var(--white);
-      padding: 10px 16px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface);
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
     }
-    .controls label { font-size: 0.85rem; color: var(--gray-600); font-weight: 600; }
+    .controls label { font-size: 0.85rem; color: var(--text-muted); }
     .controls input {
-      width: 70px; text-align: center;
-      padding: 8px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--gray-50);
-      font-weight: 700;
-      color: var(--black);
+      width: 60px; text-align: center;
+      padding: 7px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      font-weight: 600;
     }
-    .controls input:focus { outline: none; border-color: var(--black); box-shadow: 0 0 0 3px rgba(0,0,0,0.08); }
+    .controls input:focus { outline: none; border-color: var(--text); }
     .nav-links { display: flex; gap: 8px; }
     .nav-link {
-      padding: 10px 16px; border-radius: 8px;
-      background: var(--black); color: var(--white);
-      text-decoration: none; font-weight: 600; font-size: 0.85rem;
-      transition: 0.2s;
+      padding: 9px 14px; border-radius: 6px;
+      background: #1C1C1A; color: #fff;
+      text-decoration: none; font-weight: 500; font-size: 0.85rem;
+      transition: 0.15s;
     }
-    .nav-link:hover { background: var(--gray-800); }
-    .nav-link.outline { background: var(--white); color: var(--black); border: 1px solid var(--border); }
-    .nav-link.outline:hover { background: var(--gray-100); border-color: var(--black); }
+    .nav-link:hover { background: #333; }
+    .nav-link.outline { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
+    .nav-link.outline:hover { border-color: var(--text); }
 
     .container { max-width: 1100px; margin: 0 auto; }
     .intro {
       max-width: 1100px; margin: 0 auto 24px;
-      background: var(--white);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-left: 4px solid var(--black);
       padding: 16px 20px;
-      border-radius: 10px;
-      font-size: 0.9rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
       line-height: 1.6;
-      color: var(--gray-700);
+      color: var(--text-muted);
     }
-    .intro h3 { font-family: 'Playfair Display', serif; margin-bottom: 6px; color: var(--black); }
+    .intro h3 { font-size: 0.95rem; margin-bottom: 8px; color: var(--text); font-weight: 600; }
     .intro ol { margin: 8px 0 0 20px; }
-    .intro li { margin: 4px 0; }
-    .intro a { color: var(--black); font-weight: 600; }
+    .intro li { margin: 3px 0; }
+    .intro a { color: var(--text); font-weight: 500; }
 
     .qr-grid {
       display: grid;
@@ -110,40 +87,38 @@
       gap: 18px;
     }
     .qr-card {
-      background: var(--white);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px;
+      border-radius: 8px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      transition: 0.2s;
+      gap: 10px;
+      transition: 0.15s;
     }
-    .qr-card:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10); transform: translateY(-3px); border-color: var(--black); }
+    .qr-card:hover { border-color: var(--border-strong); }
     .qr-card-head {
       display: flex; justify-content: space-between; align-items: center;
     }
     .qr-table-num {
-      font-family: 'Playfair Display', serif;
-      font-weight: 700;
-      color: var(--black);
-      font-size: 1.05rem;
-      letter-spacing: 0.5px;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.92rem;
     }
     .qr-btn-icon {
-      width: 32px; height: 32px;
-      border-radius: 8px;
-      background: var(--gray-100);
-      color: var(--black);
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      background: none;
+      color: var(--text-muted);
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: 0.2s;
-      border: 1px solid var(--border);
-      font-size: 1rem;
+      cursor: pointer; transition: 0.15s;
+      border: 1px solid var(--border-strong);
+      font-size: 0.9rem;
     }
-    .qr-btn-icon:hover { background: var(--black); color: var(--white); border-color: var(--black); }
+    .qr-btn-icon:hover { color: var(--text); border-color: var(--text); }
     .qr-image-box {
-      background: var(--white);
-      border-radius: 10px;
+      background: var(--surface);
+      border-radius: 6px;
       padding: 12px;
       aspect-ratio: 1/1;
       display: flex; align-items: center; justify-content: center;
@@ -155,16 +130,17 @@
     }
     .qr-btn {
       flex: 1;
-      padding: 9px;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      font-weight: 600;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
       text-decoration: none;
       text-align: center;
-      transition: 0.2s;
+      transition: 0.15s;
+      border: 1px solid var(--border-strong);
+      color: var(--text);
     }
-    .qr-btn.open { background: var(--black); color: var(--white); }
-    .qr-btn.open:hover { background: var(--gray-800); }
+    .qr-btn.open:hover { border-color: var(--text); }
 
     @media (max-width: 640px) {
       .header { flex-direction: column; align-items: stretch; }
@@ -176,10 +152,9 @@
 
   <div class="header">
     <div class="brand-row">
-      <div class="brand-logo">TC</div>
       <div>
         <div class="brand-name">The Cakery</div>
-        <div class="brand-sub">Table QR Generator</div>
+        <div class="brand-sub">Table QR codes</div>
       </div>
     </div>
     <div class="controls">
@@ -187,6 +162,7 @@
       <input type="number" id="tableCount" value="6" min="1" max="50">
     </div>
     <div class="nav-links">
+      <a href="admin.html" target="_blank" class="nav-link outline">⚙️ Admin</a>
       <a href="pos.html" target="_blank" class="nav-link">Open POS</a>
       <a href="index.html" target="_blank" class="nav-link outline">View Menu</a>
     </div>
@@ -200,7 +176,7 @@
       <li>Click the <strong>Download</strong> icon to save the QR as a PNG image.</li>
       <li>Print each QR and place it on the matching table.</li>
       <li>When a customer scans the QR, they'll see the menu with their table number auto-selected.</li>
-      <li>When they place an order, it pops up on the <a href="pos.html" target="_blank" style="color:var(--gold-dark);">POS dashboard</a> instantly.</li>
+      <li>When they place an order, it pops up on the <a href="pos.html" target="_blank">POS dashboard</a> instantly.</li>
     </ol>
   </div>
 
@@ -233,7 +209,7 @@
         card.innerHTML = `
           <div class="qr-card-head">
             <div class="qr-table-num">Table ${i}</div>
-            <button class="qr-btn-icon" title="Download QR" data-download="${i}" data-url="${qrUrl}">⬇</button>
+            <button class="qr-btn-icon" title="Download QR" data-download="${i}" data-url="${qrUrl}">&darr;</button>
           </div>
           <div class="qr-image-box">
             <img src="${qrUrl}" alt="QR for Table ${i}" loading="lazy">
