@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Cakery — Admin Panel</title>
-  <link rel="stylesheet" href="css/admin.css">
+  <!-- Fonts: Inter (body) + Playfair Display (headings) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css?v=8">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -13,16 +17,18 @@
   <!-- ===================== LOGIN SCREEN ===================== -->
   <div id="loginScreen" class="login-screen">
     <div class="login-card">
-      <div class="login-logo">🧁</div>
+      <div class="login-logo">The <span class="brand-accent">Cakery</span></div>
       <div class="login-eyebrow">Admin Panel</div>
-      <h1 class="login-title">The Cakery</h1>
-      <p class="login-sub">Enter your password to manage the menu, sales, and brand.</p>
+      <h1 class="login-title">Sign in to your dashboard</h1>
+      <p class="login-sub">Enter your admin password to manage the menu, orders, tax settings, and brand.</p>
       <form id="loginForm" autocomplete="off">
-        <input type="password" id="loginPassword" placeholder="Admin password" autocomplete="current-password" required>
-        <button type="submit" class="login-btn">Unlock</button>
+        <div>
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="Enter admin password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="login-btn">Sign in</button>
         <div id="loginError" class="login-error"></div>
       </form>
-      <div class="login-hint">Default password is set in <code>js/admin-config.js</code></div>
     </div>
   </div>
 
@@ -33,17 +39,17 @@
     <header class="topbar">
       <div class="topbar-brand">
         <span class="logo-emoji" id="brandEmoji">🧁</span>
-        <span class="brand-name" id="brandName">The Cakery</span>
+        <span class="brand-name" id="brandName">The <span class="brand-accent">Cakery</span></span>
         <span class="brand-sep">/</span>
         <span class="brand-sub">Admin</span>
       </div>
       <nav class="topbar-tabs">
-        <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
-        <button class="tab" data-tab="menu">🍴 Menu</button>
-        <button class="tab" data-tab="orders">🧾 Orders</button>
-        <button class="tab" data-tab="users">👥 Users</button>
-        <button class="tab" data-tab="tax">🧮 Tax</button>
-        <button class="tab" data-tab="brand">🎨 Brand</button>
+        <button class="tab active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</button>
+        <button class="tab" data-tab="menu"><i data-lucide="utensils"></i> Menu</button>
+        <button class="tab" data-tab="orders"><i data-lucide="receipt"></i> Orders</button>
+        <button class="tab" data-tab="users"><i data-lucide="users"></i> Users</button>
+        <button class="tab" data-tab="tax"><i data-lucide="percent"></i> Tax</button>
+        <button class="tab" data-tab="brand"><i data-lucide="palette"></i> Brand</button>
       </nav>
       <div class="topbar-actions">
         <a href="pos.html" class="icon-link" title="Open POS">🖥️ POS</a>

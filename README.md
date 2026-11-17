@@ -301,6 +301,22 @@ All admin changes (new items, price edits, brand updates) appear instantly on ev
 
 ---
 
+## 🔖 What's new in v8 — Brand refresh (no more "AI template" look)
+
+The whole app now reads as a **real, designed bakery brand** instead of a generic gray template. Same features, completely refreshed visual identity:
+
+- **Warm patisserie palette** — cream paper (#FBF7F0), espresso brown text (#2B211A), butter-amber accent (#B8841F) carried through every page. No more pure gray/black.
+- **Real typography** — Inter for body text, **Playfair Display** (serif) for headings ("Our Menu", "Your Order", panel titles, brand wordmark). Loaded from Google Fonts.
+- **Branded wordmark** — "The **Cakery**" with the accent on "Cakery" replaces emoji logos everywhere (navbar, POS header, admin header, login).
+- **Customer menu** — pill-shaped category tabs with a right-edge fade (no more cut-off "Sandwic…"), bigger 68px food thumbnails, high-contrast filled amber **Add** buttons, serif "Our Menu" title with "À LA CARTE" eyebrow.
+- **Customer cart** — serif "Your Order" title, espresso "Place Order" button, amber-tinted active payment-method button.
+- **POS dashboard** — **status-coloured kanban**: amber top-border on New, blue on Cooking, green on Ready. Order cards get a colored left stripe by status. Stat pills in the header are color-coded too. Clear button hierarchy: espresso Accept, green Mark Ready, outlined Serve, danger Reject.
+- **Admin panel** — left-aligned login form with proper labels (no centered password, no "default password" hint), serif wordmark instead of 🧁 emoji, Lucide line icons in the nav tabs (no more emoji icons), espresso active tabs, serif "Dashboard" panel title.
+
+All three pages (customer, POS, admin) now share one consistent bakery brand system.
+
+---
+
 ## 🔖 What's new in v7
 
 - **Take Away removed** — Dine In only now. Every table has its own QR code, so the customer's table is always known from the URL.

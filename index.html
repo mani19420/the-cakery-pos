@@ -6,8 +6,13 @@
   <title>The Cakery — Order From Your Table</title>
   <meta name="description" content="Order and track from your table.">
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="css/customer.css">
+  <!-- Fonts: Inter (body) + Playfair Display (headings) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Styles (cache-busted) -->
+  <link rel="stylesheet" href="css/customer.css?v=8">
 
   <!-- Supabase + Lucide -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,7 +26,7 @@
       <div class="brand">
         <div class="brand-text">
           <span class="brand-emoji" data-brand-logo>🧁</span>
-          <span class="brand-name" data-brand-name>The Cakery</span>
+          <span class="brand-name" data-brand-name>The <span class="brand-accent">Cakery</span></span>
         </div>
       </div>
       <div class="nav-actions">
@@ -42,7 +47,10 @@
   <section class="menu-section">
     <div class="menu-container">
       <div class="menu-head">
-        <h1 class="menu-title">Menu</h1>
+        <div>
+          <div class="menu-eyebrow">À la carte</div>
+          <h1 class="menu-title">Our Menu</h1>
+        </div>
         <div class="search-box">
           <span class="search-icon"><i data-lucide="search"></i></span>
           <input type="search" id="searchInput" placeholder="Search the menu" aria-label="Search menu">

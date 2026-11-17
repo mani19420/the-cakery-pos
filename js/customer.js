@@ -179,7 +179,14 @@ function applyBrandToUI() {
   });
   document.querySelectorAll('[data-brand-name]').forEach(el => {
     el.style.display = b.logoUrl ? 'none' : '';
-    el.textContent = b.brandName || 'The Cakery';
+    // Preserve the accent on the last word ("Cakery") if the brand name is
+    // the default; otherwise render the full stored name plainly.
+    const name = b.brandName || 'The Cakery';
+    if (name === 'The Cakery' && el.dataset.brandName === '') {
+      el.innerHTML = 'The <span class="brand-accent">Cakery</span>';
+    } else {
+      el.textContent = name;
+    }
   });
   // Tagline / subtitle
   document.querySelectorAll('[data-brand-tagline]').forEach(el => { el.textContent = b.tagline || ''; });

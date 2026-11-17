@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Cakery — POS Dashboard</title>
-  <link rel="stylesheet" href="css/pos.css">
+  <!-- Fonts: Inter (body) + Playfair Display (headings) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/pos.css?v=8">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -31,7 +35,7 @@
     <!-- ===================== TOPBAR ===================== -->
     <header class="topbar">
       <div class="topbar-brand">
-        <span class="brand-name-sm">The Cakery</span>
+        <span class="brand-name-sm">The <span class="brand-accent">Cakery</span></span>
         <span class="brand-sep">/</span>
         <span class="brand-sub-sm">Orders</span>
       </div>
@@ -42,15 +46,15 @@
       </div>
 
       <div class="topbar-stats">
-        <div class="stat-pill">
+        <div class="stat-pill is-new">
           <span class="num" id="statNew">0</span>
           <span class="lbl">New</span>
         </div>
-        <div class="stat-pill">
+        <div class="stat-pill is-cook">
           <span class="num" id="statPrep">0</span>
           <span class="lbl">Cooking</span>
         </div>
-        <div class="stat-pill">
+        <div class="stat-pill is-ready">
           <span class="num" id="statReady">0</span>
           <span class="lbl">Ready</span>
         </div>
@@ -76,10 +80,10 @@
       <!-- Orders columns -->
       <div class="columns">
         <!-- NEW -->
-        <section class="column received">
+        <section class="column col-new received">
           <div class="column-header">
             <h2 class="column-title">
-              <span class="dot"></span> New Orders
+              <span class="col-dot"></span> New Orders
             </h2>
             <span class="column-count" id="cnt-received">0</span>
           </div>
@@ -89,10 +93,10 @@
         </section>
 
         <!-- COOKING -->
-        <section class="column accepted">
+        <section class="column col-cooking accepted">
           <div class="column-header">
             <h2 class="column-title">
-              <span class="dot"></span> Preparing
+              <span class="col-dot"></span> Preparing
             </h2>
             <span class="column-count" id="cnt-accepted">0</span>
           </div>
@@ -102,10 +106,10 @@
         </section>
 
         <!-- READY -->
-        <section class="column ready">
+        <section class="column col-ready ready">
           <div class="column-header">
             <h2 class="column-title">
-              <span class="dot"></span> Ready to Serve
+              <span class="col-dot"></span> Ready to Serve
             </h2>
             <span class="column-count" id="cnt-ready">0</span>
           </div>

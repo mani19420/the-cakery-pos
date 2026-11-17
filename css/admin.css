@@ -1,27 +1,31 @@
 /* ===================================================================
    The Cakery POS - Admin Panel Styles
-   Matches the minimal black/cream palette of pos.css
+   Warm bakery palette matching customer + POS apps
    =================================================================== */
 
 :root {
-  --bg: #F4F4F2;
+  --bg: #F3ECE0;            /* warm cream shell */
   --surface: #FFFFFF;
-  --surface-2: #FAFAF8;
-  --border: #E8E8E6;
-  --border-strong: #D6D6D3;
-  --text: #1C1C1A;
-  --text-muted: #6E6E69;
-  --text-faint: #A3A39D;
-  --accent: #1C1C1A;
-  --accent-soft: #EFEFEC;
-  --ok: #3E9B4F;
-  --ok-soft: #E2F4E6;
-  --warn: #C2820A;
-  --warn-soft: #FBF1DC;
-  --danger: #C44545;
-  --danger-soft: #F8E4E4;
-  --info: #2D5A87;
-  --info-soft: #E2ECF7;
+  --surface-2: #FBF7F0;     /* lighter cream wells */
+  --border: #E9DFCD;
+  --border-strong: #D6C9B0;
+  --text: #2B211A;         /* espresso */
+  --text-muted: #7A6A57;
+  --text-faint: #A89882;
+  --accent: #B8841F;        /* butter amber */
+  --accent-dark: #946A14;
+  --accent-soft: #F4E8CC;
+  --espresso: #3B2A1E;
+  --ok: #4F7A3D;
+  --ok-soft: #E0EAD8;
+  --warn: #B8841F;
+  --warn-soft: #F4E8CC;
+  --danger: #B23A2E;
+  --danger-soft: #F4DCD8;
+  --info: #2E6F95;
+  --info-soft: #DCEAF2;
+
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
 }
 
 * { box-sizing: border-box; }
@@ -60,48 +64,76 @@ code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; fon
 .login-screen[hidden] { display: none !important; }
 .login-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 40px 32px 32px;
-  text-align: center;
+  border-radius: 10px;
+  padding: 36px 34px 30px;
+  text-align: left;
+  box-shadow: 0 4px 24px rgba(43, 33, 26, 0.08);
 }
-.login-logo { font-size: 48px; line-height: 1; margin-bottom: 12px; }
+.login-logo {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--espresso);
+  margin-bottom: 14px;
+  letter-spacing: -0.01em;
+}
+.login-logo .brand-accent { color: var(--accent); }
 .login-eyebrow {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 2.5px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--accent);
   margin-bottom: 6px;
 }
-.login-title { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 8px; }
-.login-sub { font-size: 13.5px; color: var(--text-muted); margin: 0 0 24px; }
-.login-card form { display: flex; flex-direction: column; gap: 12px; }
+.login-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--espresso);
+  margin: 0 0 8px;
+  line-height: 1.15;
+}
+.login-sub { font-size: 13.5px; color: var(--text-muted); margin: 0 0 24px; line-height: 1.55; }
+.login-card form { display: flex; flex-direction: column; gap: 14px; }
+.login-card label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+  display: block;
+}
 .login-card input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 11px 14px;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 5px;
   background: var(--surface);
-  text-align: center;
-  letter-spacing: 1px;
+  text-align: left;
+  letter-spacing: 0;
+  font-size: 14px;
 }
 .login-card input:focus { outline: none; border-color: var(--accent); }
 .login-btn {
-  padding: 12px 16px;
-  background: var(--accent);
+  padding: 13px 16px;
+  background: var(--espresso);
   color: #fff;
-  border-radius: 8px;
+  border-radius: 5px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  transition: transform 0.1s, opacity 0.2s;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(43, 33, 26, 0.15);
 }
-.login-btn:hover { opacity: 0.92; }
-.login-btn:active { transform: scale(0.98); }
-.login-error { color: var(--danger); font-size: 13px; min-height: 18px; }
-.login-hint { font-size: 11.5px; color: var(--text-faint); margin-top: 18px; }
+.login-btn:hover { background: #4F3A2A; }
+.login-btn:active { transform: translateY(1px); box-shadow: none; }
+.login-error { color: var(--danger); font-size: 13px; min-height: 18px; font-weight: 500; }
 
 /* ===================== APP SHELL ===================== */
 .admin-app { min-height: 100vh; display: flex; flex-direction: column; }
@@ -123,21 +155,24 @@ code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; fon
 }
 .topbar-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 .logo-emoji { font-size: 22px; }
-.brand-name { font-size: 16px; letter-spacing: -0.2px; }
+.brand-name { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--espresso); letter-spacing: -0.005em; }
+.brand-name .brand-accent { color: var(--accent); }
 .brand-sep { color: var(--text-faint); font-weight: 400; }
 .brand-sub { font-size: 13px; color: var(--text-muted); font-weight: 500; }
 
-.topbar-tabs { display: flex; gap: 4px; }
+.topbar-tabs { display: flex; gap: 2px; }
 .tab {
   padding: 8px 14px;
-  border-radius: 7px;
+  border-radius: 5px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
   transition: background 0.15s, color 0.15s;
+  display: inline-flex; align-items: center; gap: 7px;
 }
-.tab:hover { background: var(--accent-soft); }
-.tab.active { background: var(--accent); color: #fff; }
+.tab svg { width: 15px; height: 15px; flex-shrink: 0; }
+.tab:hover { background: var(--accent-soft); color: var(--accent-dark); }
+.tab.active { background: var(--espresso); color: #fff; }
 
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 .icon-link {
@@ -198,12 +233,20 @@ code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; fon
 .eyebrow {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 2.5px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--accent);
   margin-bottom: 4px;
 }
-.panel-title { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; margin: 0; }
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--espresso);
+  margin: 0;
+  line-height: 1.15;
+}
 .panel-actions { display: flex; gap: 8px; }
 
 /* RANGE PILLS */
