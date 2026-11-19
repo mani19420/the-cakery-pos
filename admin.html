@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css?v=8">
+  <link rel="stylesheet" href="css/admin.css?v=9">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -172,6 +172,7 @@
         <table class="data-table" id="menuTable">
           <thead>
             <tr>
+              <th style="width:44px" title="Drag rows up/down to change the order customers see">↕</th>
               <th style="width:60px">Image</th>
               <th>Name</th>
               <th>Category</th>
@@ -182,9 +183,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="7" class="empty-row">Loading…</td></tr>
+            <tr><td colspan="8" class="empty-row">Loading…</td></tr>
           </tbody>
         </table>
+        <p style="font-size:12px;color:var(--text-faint);margin:8px 2px 0;">
+          ↕ Drag the handle on any row up or down to change its position — the customer menu follows this order instantly.
+        </p>
       </div>
     </section>
 
@@ -493,11 +497,11 @@
   <div id="toastContainer"></div>
 
   <!-- ===================== SCRIPTS ===================== -->
-  <script src="js/supabase-config.js?v=6"></script>
-  <script src="js/utils.js?v=6fresh2026"></script>
-  <script src="js/menu-data.js?v=6"></script>
-  <script src="js/menu-store.js?v=6fresh2026"></script>
-  <script src="js/admin-config.js?v=6"></script>
-  <script src="js/admin.js?v=6"></script>
+  <script src="js/supabase-config.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/menu-data.js?v=9"></script>
+  <script src="js/menu-store.js?v=9"></script>
+  <script src="js/admin-config.js?v=9"></script>
+  <script src="js/admin.js?v=9"></script>
 </body>
 </html>

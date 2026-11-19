@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/pos.css?v=8">
+  <link rel="stylesheet" href="css/pos.css?v=9">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -17,13 +17,19 @@
   <!-- ===================== LOGIN SCREEN ===================== -->
   <div id="posLoginScreen" class="pos-login-screen">
     <div class="pos-login-card">
-      <div class="pos-login-logo">🧁</div>
+      <div class="pos-login-logo">The <span class="brand-accent">Cakery</span></div>
       <div class="pos-login-eyebrow">POS Dashboard</div>
-      <h1 class="pos-login-title">The Cakery</h1>
-      <p class="pos-login-sub">Staff login required. Enter your username and password.</p>
+      <h1 class="pos-login-title">Staff sign in</h1>
+      <p class="pos-login-sub">Enter your username and password to manage orders.</p>
       <form id="posLoginForm" autocomplete="off">
-        <input type="text" id="posLoginUser" placeholder="Username" autocomplete="username" required>
-        <input type="password" id="posLoginPass" placeholder="Password" autocomplete="current-password" required>
+        <div>
+          <label for="posLoginUser">Username</label>
+          <input type="text" id="posLoginUser" placeholder="Enter username" autocomplete="username" required>
+        </div>
+        <div>
+          <label for="posLoginPass">Password</label>
+          <input type="password" id="posLoginPass" placeholder="Enter password" autocomplete="current-password" required>
+        </div>
         <button type="submit" class="pos-login-btn">Sign In</button>
         <div id="posLoginError" class="pos-login-error"></div>
       </form>
@@ -223,10 +229,10 @@
   <!-- Notification sound (Web Audio API fallback used in JS, but keep a hidden audio) -->
   <audio id="notifSound" preload="auto"></audio>
 
-  <script src="js/supabase-config.js?v=6"></script>
-  <script src="js/menu-data.js?v=6"></script>
-  <script src="js/utils.js?v=6fresh2026"></script>
-  <script src="js/menu-store.js?v=6fresh2026"></script>
-  <script src="js/pos.js?v=6fresh2026"></script>
+  <script src="js/supabase-config.js?v=9"></script>
+  <script src="js/menu-data.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/menu-store.js?v=9"></script>
+  <script src="js/pos.js?v=9"></script>
 </body>
 </html>

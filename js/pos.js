@@ -17,6 +17,10 @@ const POS_STATE = {
   user: null   // { id, username, displayName, role } when logged in
 };
 
+// v9: orders that arrived while the POS tab was hidden — their popup is
+// re-shown when staff returns to the tab.
+const _pendingPopupOrders = new Set();
+
 // Role permissions: which actions each role can perform on the POS
 const ROLE_PERMS = {
   owner:    { accept: true, reject: true, ready: true, serve: true, bill: true, delete: true, edit: true },
@@ -158,6 +162,11 @@ POS_DOM.loginForm.addEventListener('submit', async (e) => {
       ts: Date.now(),
       user: result.user
     }));
+    // v9: ask for desktop Notification permission right after login —
+    // this is a user-gesture context, so the browser prompt is allowed.
+    // Grants fire OS-level popups for new orders even when this POS tab
+    // is in the background.
+    _requestNotifyPermission();
     showPosApp();
     await bootPos();
   } catch (err) {
@@ -197,7 +206,10 @@ async function bootPos() {
     subscribeToOrders(handleRealtimeEvent);
     setInterval(loadAllOrders, 10000);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') loadAllOrders();
+      if (document.visibilityState === 'visible') {
+        loadAllOrders();
+        replayPendingPopups();
+      }
     });
     showToast('Demo mode — orders placed in another tab will appear here', 'info', 6000);
     if (window.lucide) lucide.createIcons();
@@ -217,9 +229,12 @@ async function bootPos() {
 
   setConnectionStatus(true, 'Live');
 
-  // Visibility change → re-fetch on tab focus
+  // Visibility change → re-fetch on tab focus + re-show queued popups
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') loadAllOrders();
+    if (document.visibilityState === 'visible') {
+      loadAllOrders();
+      replayPendingPopups();
+    }
   });
 
   if (window.lucide) lucide.createIcons();
@@ -251,6 +266,12 @@ function handleRealtimeEvent(payload) {
   } else if (eventType === 'UPDATE') {
     // Status changed
     const idx = POS_STATE.orders.findIndex(o => o.id === newRec.id);
+    // v9: if a NEW order arrives while this tab is hidden, the in-page
+    // popup is easy to miss — queue it so it re-shows (plus title flash
+    // + sound) the moment the staff comes back to the POS.
+    if (document.visibilityState !== 'visible') {
+      _pendingPopupOrders.add(newRec.id);
+    }
     if (newRec.status === 'served' || newRec.status === 'rejected') {
       // Remove from active, add to history if served
       if (idx !== -1) POS_STATE.orders.splice(idx, 1);
@@ -271,12 +292,63 @@ function handleRealtimeEvent(payload) {
 // ----------------------------------------------------------------
 // NEW ORDER POPUP (the highlight feature!)
 // ----------------------------------------------------------------
+// v9: the popup now fights for attention even if the POS is in a
+// background tab / different window:
+//   1. A desktop Notification pops on the OS level (if permission granted).
+//   2. document.title flashes "🔔 NEW ORDER!" until staff returns.
+//   3. On return (visibilitychange), the popup is guaranteed re-shown
+//      for any order placed while the tab was hidden.
+//   4. Sound plays regardless (browsers may throttle, but on focus it retries).
+const _titleFlash = {
+  timer: null,
+  base: null,
+  start() {
+    if (this.timer) return;                 // already flashing
+    this.base = this.base || document.title;
+    let flip = false;
+    this.timer = setInterval(() => {
+      document.title = flip ? '🔔 NEW ORDER! — ' + this.base : this.base;
+      flip = !flip;
+    }, 900);
+  },
+  stop() {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    if (this.base) { document.title = this.base; }
+  }
+};
+
+function _requestNotifyPermission() {
+  try {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  } catch (e) {}
+}
+
+function _showDesktopNotification(order, itemCount) {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const body = '#' + order.order_number + ' · Table ' + order.table_number +
+                 ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '') +
+                 ' · ' + formatPrice(order.total);
+    const n = new Notification('🔔 New order — The Cakery', { body: body, tag: order.id, requireInteraction: false });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch (e) {}
+}
+
 function showNewOrderPopup(order) {
   // Avoid duplicates
   if (SHOWN_POPUPS.has(order.id)) return;
   SHOWN_POPUPS.add(order.id);
 
   const itemCount = Array.isArray(order.items) ? order.items.reduce((s, i) => s + i.qty, 0) : 0;
+
+  // v9 attention stack — works even from a background tab:
+  _showDesktopNotification(order, itemCount);
+  _titleFlash.start();
+  // Try to steal focus if the browser allows it (works when POS is in
+  // another window/tab on the same machine; harmless otherwise).
+  try { window.focus(); } catch (e) {}
 
   const popup = document.createElement('div');
   popup.className = 'popup';
@@ -295,15 +367,28 @@ function showNewOrderPopup(order) {
   `;
   POS_DOM.popupContainer.appendChild(popup);
 
+  // Stop flashing the title when staff actually looks at the POS.
+  const stopFlash = () => _titleFlash.stop();
+  document.addEventListener('visibilitychange', function onVis() {
+    if (document.visibilityState === 'visible') {
+      stopFlash();
+      document.removeEventListener('visibilitychange', onVis);
+      playNotificationSound();   // retry the bell once staff is back
+    }
+  });
+  popup.addEventListener('click', stopFlash, { once: true });
+
   // Auto-dismiss after 12 seconds
   const dismissTimer = setTimeout(() => dismissPopup(popup), 12000);
 
   popup.querySelector('.popup-close').addEventListener('click', () => {
     clearTimeout(dismissTimer);
+    stopFlash();
     dismissPopup(popup);
   });
   popup.querySelector('.popup-btn.view').addEventListener('click', () => {
     clearTimeout(dismissTimer);
+    stopFlash();
     dismissPopup(popup);
     showBill(order);
   });
@@ -312,6 +397,24 @@ function showNewOrderPopup(order) {
 function dismissPopup(popup) {
   popup.classList.add('closing');
   setTimeout(() => popup.remove(), 300);
+}
+
+// Re-show popups for orders that arrived while the tab was hidden.
+// Staff gets the full "New order!" popup + sound the moment they switch
+// back to the POS, so nothing is ever missed.
+function replayPendingPopups() {
+  if (_pendingPopupOrders.size === 0) return;
+  const ids = Array.from(_pendingPopupOrders);
+  _pendingPopupOrders.clear();
+  ids.forEach(id => {
+    const order = POS_STATE.orders.find(o => o.id === id);
+    if (order && order.status === 'received') {
+      // Temporarily allow re-showing (SHOWN_POPUPS blocked the first one)
+      SHOWN_POPUPS.delete(id);
+      showNewOrderPopup(order);
+    }
+  });
+  if (ids.length) playNotificationSound();
 }
 
 // ----------------------------------------------------------------

@@ -430,7 +430,7 @@ input { font-family: inherit; font-size: inherit; color: inherit; }
   background: var(--surface);
   border: 2px solid var(--accent);
   border-radius: 10px;
-  box-shadow: var(--shadow-pop);
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-pop);
   padding: 14px 16px;
   animation: slideInTop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -593,7 +593,11 @@ input { font-family: inherit; font-size: inherit; color: inherit; }
 .pos-login-screen {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #1C1C1A 0%, #2a2a26 100%);
+  /* Warm espresso gradient with amber glow — bakery brand */
+  background:
+    radial-gradient(ellipse 60% 45% at 75% 18%, rgba(184, 132, 31, 0.28) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 15% 85%, rgba(184, 132, 31, 0.16) 0%, transparent 65%),
+    linear-gradient(135deg, #2B211A 0%, #3B2A1E 45%, #241810 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -601,41 +605,66 @@ input { font-family: inherit; font-size: inherit; color: inherit; }
   padding: 20px;
 }
 .pos-login-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 36px 32px 28px;
+  background: #FBF7F0;
+  border: 1px solid rgba(214, 201, 176, 0.6);
+  border-radius: 12px;
+  padding: 38px 34px 28px;
   width: 100%;
-  max-width: 380px;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.35);
-  text-align: center;
+  max-width: 400px;
+  box-shadow: 0 24px 60px rgba(20, 12, 6, 0.5);
+  text-align: left;
 }
-.pos-login-logo { font-size: 48px; line-height: 1; margin-bottom: 12px; }
+.pos-login-logo {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: var(--espresso);
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+}
+.pos-login-logo .brand-accent { color: var(--accent); }
 .pos-login-eyebrow {
-  font-size: 11px; font-weight: 700; letter-spacing: 2px;
-  text-transform: uppercase; color: #888; margin-bottom: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
 }
-.pos-login-title { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 8px; }
-.pos-login-sub { font-size: 13.5px; color: #666; margin: 0 0 24px; }
-.pos-login-card form { display: flex; flex-direction: column; gap: 12px; }
+.pos-login-title {
+  font-family: var(--font-display);
+  font-size: 24px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--espresso); margin: 0 0 8px; line-height: 1.15;
+}
+.pos-login-sub { font-size: 13.5px; color: var(--text-muted); margin: 0 0 24px; line-height: 1.55; }
+.pos-login-card form { display: flex; flex-direction: column; gap: 14px; }
+.pos-login-card label {
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 5px; display: block;
+}
 .pos-login-card input {
   padding: 12px 14px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
   font-size: 15px;
   font-weight: 500;
-  background: #fafafa;
+  background: #fff;
+  width: 100%;
+  text-align: left;
+  letter-spacing: 0;
 }
-.pos-login-card input:focus { outline: none; border-color: #1C1C1A; background: #fff; }
+.pos-login-card input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 .pos-login-btn {
-  background: #1C1C1A; color: #fff; padding: 13px;
-  border: none; border-radius: 8px; font-size: 15px; font-weight: 700;
-  cursor: pointer; transition: opacity 0.15s;
+  background: var(--espresso); color: #fff; padding: 13px;
+  border: none; border-radius: 6px; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(43, 33, 26, 0.2);
 }
-.pos-login-btn:hover { opacity: 0.92; }
-.pos-login-btn:active { transform: scale(0.98); }
-.pos-login-error { color: #dc2626; font-size: 13px; min-height: 18px; }
-.pos-login-hint { font-size: 11.5px; color: #999; margin-top: 18px; }
-.pos-login-hint a { color: #1C1C1A; font-weight: 600; }
+.pos-login-btn:hover { background: #4F3A2A; }
+.pos-login-btn:active { transform: translateY(1px); }
+.pos-login-error { color: var(--danger); font-size: 13px; min-height: 18px; font-weight: 500; }
+.pos-login-hint { font-size: 11.5px; color: var(--text-faint); margin-top: 18px; }
+.pos-login-hint a { color: var(--accent-dark); font-weight: 600; }
 
 /* ===================== USER BADGE ===================== */
 .user-badge {

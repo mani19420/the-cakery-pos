@@ -52,25 +52,51 @@ function init() {
   // The customer reaches this page by scanning the table QR code,
   // which opens index.html?table=N. We go straight to the menu in
   // Dine In mode for that table — no "Start Order" picker needed.
-  // If for some reason the table is missing from the URL (direct
-  // visit), we ask them to pick their table number from 1–8.
+  //
+  // Robustness (v9): the menu ALWAYS opens, even if the QR/URL is
+  // missing or mangled — we accept ?table=N / ?t=N / #table=N, we
+  // extract digits from junky values ("3/", "table-3"), and if we
+  // still can't find a table we fall back to the last used table or
+  // show a small non-blocking picker ON TOP of the already-rendered
+  // menu. A blank page behind a picker is the #1 "QR scan doesn't
+  // open the menu" complaint.
   const urlParams = new URLSearchParams(window.location.search);
-  const tableFromURL = urlParams.get('table');
+  let rawTable = urlParams.get('table') || urlParams.get('t');
+  if (!rawTable && window.location.hash) {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    rawTable = hashParams.get('table') || hashParams.get('t');
+  }
 
-  if (!tableFromURL) {
-    showTablePicker();
+  let tableNum = null;
+  if (rawTable) {
+    const m = String(rawTable).match(/\d+/);   // tolerate junk around the number
+    if (m) tableNum = parseInt(m[0]);
+  }
+
+  if (tableNum && tableNum >= 1 && tableNum <= 999) {
+    STATE.table = tableNum;
+    STATE.orderType = 'dine_in';
+    startApp();
     return;
   }
 
-  STATE.table = parseInt(tableFromURL);
-  STATE.orderType = 'dine_in';
-  startApp();
+  // No usable table in the URL — still open the menu immediately,
+  // then ask for the table number on top (non-blocking).
+  const savedTable = parseInt(localStorage.getItem('cakery_last_table'));
+  if (savedTable && savedTable >= 1 && savedTable <= 999) {
+    STATE.table = savedTable;
+    STATE.orderType = 'dine_in';
+    startApp();
+    return;
+  }
+  startApp().then(() => showTablePicker());
 }
 
-// Show a modal asking which table the customer is sitting at (1–8).
-// Dine In only — Take Away was removed in v7. Every table has its own
-// QR code, so the normal flow never lands here; this is just a fallback.
+// Show a non-blocking modal asking which table the customer is sitting at.
+// Dine In only — Take Away was removed in v7. The menu is already visible
+// behind this modal; the customer can still browse while choosing.
 function showTablePicker() {
+  if (document.getElementById('tablePickerModal')) return; // already open
   const saved = localStorage.getItem('cakery_last_table');
   let picked = saved || '';
   const modal = document.createElement('div');
@@ -81,10 +107,10 @@ function showTablePicker() {
     <div class="modal-card">
       <div class="modal-eyebrow">Dine In</div>
       <h3 class="modal-title">What's your table number?</h3>
-      <p class="modal-text" style="margin-bottom:16px;">Scan the QR code on your table, or enter your table number (1–8) below to start ordering.</p>
+      <p class="modal-text" style="margin-bottom:16px;">Scan the QR code on your table, or enter your table number below to start ordering.</p>
 
       <label for="tablePickerInput" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">TABLE NUMBER</label>
-      <input type="number" id="tablePickerInput" min="1" max="8" value="${picked}">
+      <input type="number" id="tablePickerInput" min="1" max="999" value="${picked}">
 
       <button class="modal-btn" id="tablePickerGo" style="width:100%;margin-top:14px;">Start Ordering</button>
     </div>
@@ -96,9 +122,29 @@ function showTablePicker() {
 
   const go = () => {
     const n = parseInt(input.value);
-    if (!n || n < 1 || n > 8) { input.style.borderColor = '#dc2626'; input.focus(); return; }
+    if (!n || n < 1 || n > 999) { input.style.borderColor = '#dc2626'; input.focus(); return; }
     localStorage.setItem('cakery_last_table', String(n));
-    window.location.href = 'index.html?table=' + n;
+    STATE.table = n;
+    STATE.orderType = 'dine_in';
+    // Reload cart/orders for the new table without a full page reload.
+    const saved = loadTableState(n);
+    STATE.cart = saved ? (saved.cart || []) : [];
+    STATE.orders = saved ? (saved.orders || []) : [];
+    updateCart();
+    saveState();
+    updateActiveBadge();
+    if (DOM.tableBadge) {
+      DOM.tableBadge.style.display = 'inline-flex';
+      DOM.tableBadge.innerHTML = '🍽️ Table ' + n;
+    }
+    modal.remove();
+    // Track this table's pending orders.
+    STATE.orders.forEach(o => {
+      if (o.status !== 'served' && o.status !== 'rejected') {
+        subscribeToOrder(o.id, handleOrderUpdate);
+      }
+    });
+    showToast('Table ' + n + ' selected — happy ordering!', 'success', 2500);
   };
   goBtn.addEventListener('click', go);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
@@ -115,11 +161,23 @@ async function startApp() {
 
   // 2. Load saved cart & orders from localStorage (keyed by table number)
   const storageKey = STATE.table;
-  const saved = loadTableState(storageKey);
-  if (saved) {
-    STATE.cart = saved.cart || [];
-    STATE.orders = saved.orders || [];
+  if (storageKey) {
+    const saved = loadTableState(storageKey);
+    if (saved) {
+      STATE.cart = saved.cart || [];
+      STATE.orders = saved.orders || [];
+    }
   }
+
+  // v9: prune finished orders. Once an order is served (or rejected),
+  // the customer has already got their "served" alert — the old order
+  // details should NOT stay visible in "Orders" or in the badge. The
+  // record itself lives on in the database / admin panel.
+  const beforePrune = STATE.orders.length;
+  STATE.orders = STATE.orders.filter(o =>
+    o.status !== 'served' && o.status !== 'rejected'
+  );
+  if (STATE.orders.length !== beforePrune) saveState();
 
   // Sync the cart payment-method buttons with the current STATE
   document.querySelectorAll('[data-payment-method]').forEach(b => {
@@ -208,6 +266,16 @@ function renderCategories() {
 // ----------------------------------------------------------------
 function renderMenu() {
   let items = getMenu().filter(i => i.available !== false);
+
+  // v9: respect the admin's drag & drop order (sort_order). getMenu()
+  // already sorts by sort_order when reading from Supabase, but the
+  // cache/fallback paths may not — sort defensively here too.
+  items = items.slice().sort((a, b) => {
+    const sa = Number(a.sortOrder != null ? a.sortOrder : 9999);
+    const sb = Number(b.sortOrder != null ? b.sortOrder : 9999);
+    if (sa !== sb) return sa - sb;
+    return 0; // keep the underlying (name) order for equal sort values
+  });
 
   if (STATE.selectedCategory !== 'all') {
     items = items.filter(i => i.category === STATE.selectedCategory);
@@ -468,17 +536,37 @@ function handleOrderUpdate(payload) {
   const oldStatus = order.status;
   order.status = updated.status;
   order.updated_at = updated.updated_at;
+
+  // v9: once the order reaches the customer (served / rejected) and the
+  // alert toast has fired, the order is removed from the customer's view
+  // entirely. The full record stays in the database / POS history /
+  // admin panel — the customer just doesn't need it anymore.
+  if (updated.status === 'served' || updated.status === 'rejected') {
+    // Fire the final alert first…
+    const msgs = {
+      served:  'Order #' + order.order_number + ' served — enjoy! 🎉',
+      rejected: 'Order #' + order.order_number + ' was rejected'
+    };
+    if (msgs[updated.status] && oldStatus !== updated.status) {
+      showToast(msgs[updated.status], updated.status === 'rejected' ? 'error' : 'success', 4000);
+    }
+    // …then drop it from the local list and persist.
+    STATE.orders = STATE.orders.filter(o => o.id !== updated.id);
+    saveState();
+    updateActiveBadge();
+    if (DOM.ordersModal.classList.contains('open')) renderOrdersList();
+    return;
+  }
+
   saveState();
 
   // Show toast for meaningful changes
   if (oldStatus !== updated.status) {
     const msgs = {
       accepted: 'Order #' + order.order_number + ' is being prepared',
-      ready:    'Order #' + order.order_number + ' is ready',
-      served:   'Order #' + order.order_number + ' served',
-      rejected:  'Order #' + order.order_number + ' was rejected'
+      ready:    'Order #' + order.order_number + ' is ready'
     };
-    if (msgs[updated.status]) showToast(msgs[updated.status], updated.status === 'rejected' ? 'error' : 'success', 4000);
+    if (msgs[updated.status]) showToast(msgs[updated.status], 'success', 4000);
   }
 
   updateActiveBadge();

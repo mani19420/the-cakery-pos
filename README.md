@@ -301,6 +301,20 @@ All admin changes (new items, price edits, brand updates) appear instantly on ev
 
 ---
 
+## 🔖 What's new in v9 — Fixes + staff & admin power features
+
+- **Premium login screens** — both POS and Admin logins now share a warm espresso gradient with an amber glow, the serif "The Cakery" wordmark, and left-aligned labelled fields. No more emoji logos.
+- **QR scan bug fixed** — the menu **always opens**, no matter what. Robust URL parsing (`?table=N`, `?t=N`, `#table=N`, junky values like `table=3/` are tolerated), falls back to the last used table, and if no table is known the menu still renders with a small non-blocking table picker on top (the page is never blank).
+- **Served orders no longer linger for the customer** — once an order is served (or rejected), the customer gets the final toast and the order disappears from their "Orders" list and badge. The full record stays in the database, POS history and admin panel.
+- **New-order popup fights for attention** — when an order lands, the POS now: shows the top-center popup (amber glow), plays the 3-beep bell, flashes the browser tab title "🔔 NEW ORDER!", sends an OS-level desktop Notification (permission asked right after staff login), and if the tab was hidden the popup + sound replay the moment staff switches back. Nothing is ever missed.
+- **Tax settings actually save** — fixed "new row violates row-level security policy" on save: writes now go UPDATE-first with INSERT fallback, plus `sql/migration-v9.sql` adds the missing INSERT policy for older databases. Tax tab (rates, labels, beverage categories, inclusive pricing, live preview) was already editable and now persists reliably.
+- **Drag & drop menu ordering** — in Admin → Menu, grab the ⠿ handle on any row and drag it up/down. The new order is written to each item's `sort_order` and the customer menu follows it instantly (live via realtime). A hint under the table explains it.
+- Demo mode (no Supabase): tax edits save to localStorage, and drag-reorder works for the session with a clear toast.
+
+**Setup note:** this demo Supabase project has the `orders` and `tax_settings` tables but not `menu_items` / `brand_settings` — run `sql/schema.sql` (then `sql/migration-v9.sql`) in the Supabase SQL Editor to create them. Until then the menu runs from the built-in `menu-data.js` list.
+
+---
+
 ## 🔖 What's new in v8 — Brand refresh (no more "AI template" look)
 
 The whole app now reads as a **real, designed bakery brand** instead of a generic gray template. Same features, completely refreshed visual identity:

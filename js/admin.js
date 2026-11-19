@@ -258,13 +258,18 @@ async function refreshMenu(showLoader = true) {
 function renderMenuTable() {
   const tbody = document.querySelector('#menuTable tbody');
   if (!A.menu.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-row">
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-row">
       No menu items in the database. Click <b>📥 Seed from local</b> to import the default menu, or <b>+ Add item</b> to create one.
     </td></tr>`;
     return;
   }
 
+  // v9: sort by sortOrder first (admin controls this via drag & drop),
+  // then category, then name — so the drag order sticks but stays tidy.
   let items = A.menu.slice().sort((a, b) => {
+    const sa = Number(a.sortOrder != null ? a.sortOrder : 9999);
+    const sb = Number(b.sortOrder != null ? b.sortOrder : 9999);
+    if (sa !== sb) return sa - sb;
     const c = (a.category || '').localeCompare(b.category || '');
     if (c !== 0) return c;
     return (a.name || '').localeCompare(b.name || '');
@@ -281,7 +286,7 @@ function renderMenuTable() {
   }
 
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No items match your filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No items match your filters.</td></tr>';
     return;
   }
 
@@ -296,7 +301,8 @@ function renderMenuTable() {
       ? '<span class="badge badge-available">Available</span>'
       : '<span class="badge badge-hidden">Hidden</span>';
     const popularBadge = i.popular ? ' <span class="badge badge-popular">★ Popular</span>' : '';
-    return `<tr>
+    return `<tr data-item-id="${escapeHTML(i.id)}">
+      <td class="drag-cell"><span class="drag-handle" title="Drag to reorder (shown top → bottom on the customer menu)">⠿</span></td>
       <td>${img}</td>
       <td><b>${escapeHTML(i.name)}</b><br><span style="font-size:11px;color:var(--text-faint)">${escapeHTML(i.id)}</span></td>
       <td>${escapeHTML(catLabel(i.category))}</td>
@@ -321,6 +327,91 @@ function renderMenuTable() {
     const it = A.menu.find(x => x.id === b.dataset.del);
     if (it) confirmDelete(it);
   }));
+
+  setupMenuDragAndDrop(tbody);
+}
+
+// ----------------------------------------------------------------
+// v9: DRAG & DROP MENU ORDERING
+// The order you see here is the order customers see on their menu
+// (items without a category filter). Drag a row up/down — the new
+// position is saved to the database (sort_order) immediately.
+// ----------------------------------------------------------------
+function setupMenuDragAndDrop(tbody) {
+  let draggedRow = null;
+
+  tbody.querySelectorAll('tr[data-item-id]').forEach(row => {
+    row.setAttribute('draggable', 'true');
+
+    // Drag starts only from the handle, so text selection still works.
+    const handle = row.querySelector('.drag-handle');
+    handle.addEventListener('mousedown', () => { row.setAttribute('draggable', 'true'); });
+    row.addEventListener('dragstart', (e) => {
+      if (!e.target.closest('.drag-handle') && e.target !== row) {
+        e.preventDefault(); return;
+      }
+      draggedRow = row;
+      row.classList.add('dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', row.dataset.itemId); } catch (err) {}
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      tbody.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+      draggedRow = null;
+    });
+
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!draggedRow || draggedRow === row) return;
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      row.classList.toggle('drag-over-top', before);
+      row.classList.toggle('drag-over-bottom', !before);
+    });
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    row.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      if (!draggedRow || draggedRow === row) return;
+      const rect = row.getBoundingClientRect();
+      const insertBefore = e.clientY < rect.top + rect.height / 2;
+      row.parentNode.insertBefore(draggedRow, insertBefore ? row : row.nextSibling);
+      await persistMenuOrder(tbody);
+    });
+  });
+}
+
+// Write the current visual order of the table back into sortOrder
+// (0,1,2,…) and save every changed item.
+async function persistMenuOrder(tbody) {
+  const rows = Array.from(tbody.querySelectorAll('tr[data-item-id]'));
+  const changed = [];
+  rows.forEach((row, idx) => {
+    const it = A.menu.find(x => x.id === row.dataset.itemId);
+    if (it && Number(it.sortOrder) !== idx) {
+      it.sortOrder = idx;
+      changed.push(it);
+    }
+  });
+  if (!changed.length) return;
+
+  if (!isSupabaseReady()) {
+    // Demo mode: order persists in this session's list only (no DB).
+    showToast('✓ Menu order updated (demo mode — connect Supabase to save permanently)', 'success');
+    renderMenuTable();
+    return;
+  }
+  try {
+    showToast('Saving new order…', 'info', 1500);
+    for (const it of changed) {
+      await saveMenuItem(it);   // upsert with the new sort_order
+    }
+    showToast('✓ Menu order saved — customers see the new order instantly', 'success');
+    await refreshMenu();
+  } catch (e) {
+    showToast('Order save failed: ' + e.message, 'error');
+  }
 }
 
 function catLabel(slug) {

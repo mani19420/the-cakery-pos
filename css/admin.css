@@ -58,7 +58,11 @@ code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; fon
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  /* Warm espresso gradient with amber glow — matches POS login */
+  background:
+    radial-gradient(ellipse 60% 45% at 75% 18%, rgba(184, 132, 31, 0.28) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 15% 85%, rgba(184, 132, 31, 0.16) 0%, transparent 65%),
+    linear-gradient(135deg, #2B211A 0%, #3B2A1E 45%, #241810 100%);
   padding: 24px;
 }
 .login-screen[hidden] { display: none !important; }
@@ -413,6 +417,26 @@ code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; fon
 .cell-price { font-weight: 700; }
 .cell-sale { color: var(--danger); font-weight: 700; font-size: 12px; }
 .cell-sale .orig { color: var(--text-faint); text-decoration: line-through; font-weight: 400; margin-right: 6px; }
+
+/* v9 DRAG & DROP REORDERING (menu table) */
+.drag-cell { width: 44px; text-align: center; }
+.drag-handle {
+  cursor: grab;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  padding: 8px 6px;
+  border-radius: 5px;
+  display: inline-block;
+  user-select: none;
+  transition: color 0.15s, background 0.15s;
+}
+.drag-handle:hover { color: var(--accent-dark); background: var(--accent-soft); }
+tr[draggable="true"]:active .drag-handle { cursor: grabbing; }
+tr.dragging { opacity: 0.45; }
+tr.dragging td { background: var(--accent-soft) !important; }
+tr.drag-over-top td { border-top: 2.5px solid var(--accent) !important; }
+tr.drag-over-bottom td { border-bottom: 2.5px solid var(--accent) !important; }
 
 /* BADGES */
 .badge {

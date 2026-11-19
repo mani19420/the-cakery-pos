@@ -352,8 +352,24 @@ function getTaxSettings() {
 }
 
 async function saveTaxSettings(t) {
+  // v9: demo mode (no Supabase) — persist to localStorage so the admin
+  // Tax tab still works for testing, and the customer cart / POS bills
+  // pick the rates up instantly via getTaxSettings().
   if (!isSupabaseReady()) {
-    throw new Error('Supabase is not configured. Admin panel needs a live database.');
+    _taxCache = {
+      fbrEnabled: !!t.fbrEnabled,
+      fbrRatePct: Number(t.fbrRatePct) || 0,
+      fbrLabel: t.fbrLabel || 'FBR Sales Tax',
+      praEnabled: !!t.praEnabled,
+      praRatePct: Number(t.praRateCashPct != null ? t.praRateCashPct : t.praRatePct) || 0,
+      praRateCashPct: Number(t.praRateCashPct != null ? t.praRateCashPct : t.praRatePct) || 0,
+      praRateCardPct: Number(t.praRateCardPct != null ? t.praRateCardPct : t.praRatePct) || 0,
+      praLabel: t.praLabel || 'PRA Punjab Tax',
+      beverageCategories: Array.isArray(t.beverageCategories) ? t.beverageCategories : [],
+      pricesInclusive: !!t.pricesInclusive
+    };
+    _writeCache(TAX_CACHE_KEY, _taxCache);
+    return _taxCache;
   }
   const row = {
     id: 1,
@@ -369,6 +385,24 @@ async function saveTaxSettings(t) {
     beverage_categories: JSON.stringify(t.beverageCategories || []),
     prices_inclusive: !!t.pricesInclusive
   };
+  // v9: UPDATE-first strategy. The tax_settings RLS policy allows UPDATE
+  // but not INSERT (fixed in sql/migration-v9.sql, but older deployments
+  // may not have run it), so a plain upsert fails with
+  // "violates row-level security policy". Try the update; only if no row
+  // was affected, fall back to insert.
+  const { data: updData, error: updError } = await supabaseClient
+    .from('tax_settings')
+    .update(row)
+    .eq('id', 1)
+    .select()
+    .maybeSingle();
+  if (!updError && updData) {
+    _taxCache = _normalizeTaxRow(updData);
+    _writeCache(TAX_CACHE_KEY, _taxCache);
+    return _taxCache;
+  }
+  // No row yet (or update blocked) → insert it. If this fails too,
+  // surface the original error.
   const { data, error } = await supabaseClient
     .from('tax_settings')
     .upsert([row], { onConflict: 'id' })
