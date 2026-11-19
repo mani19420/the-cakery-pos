@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Cakery — Order From Your Table</title>
+  <meta name="description" content="Order and track from your table.">
+
+  <!-- Fonts: Inter (body) + Playfair Display (headings) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Styles (cache-busted) -->
+  <link rel="stylesheet" href="css/customer.css?v=9">
+
+  <!-- Supabase + Lucide -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- ===================== NAVBAR ===================== -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="brand">
+        <div class="brand-text">
+          <span class="brand-emoji" data-brand-logo>🧁</span>
+          <span class="brand-name" data-brand-name>The <span class="brand-accent">Cakery</span></span>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <span id="tableBadge" class="table-badge" style="display:none;">Table —</span>
+        <button id="trackBtn" class="btn-ghost">
+          <span class="btn-text">Orders</span>
+          <span id="activeBadge" class="cart-count hidden">0</span>
+        </button>
+        <button id="cartBtn" class="btn-cart">
+          <span class="btn-text">Cart</span>
+          <span id="cartCount" class="cart-count hidden">0</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===================== MENU ===================== -->
+  <section class="menu-section">
+    <div class="menu-container">
+      <div class="menu-head">
+        <div>
+          <div class="menu-eyebrow">À la carte</div>
+          <h1 class="menu-title">Our Menu</h1>
+        </div>
+        <div class="search-box">
+          <span class="search-icon"><i data-lucide="search"></i></span>
+          <input type="search" id="searchInput" placeholder="Search the menu" aria-label="Search menu">
+        </div>
+      </div>
+
+      <div id="categoryTabs" class="category-tabs"></div>
+
+      <div id="menuGrid" class="menu-grid"></div>
+      <div id="noResults" class="no-results hidden">
+        <p>No items match your search.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CART SIDEBAR ===================== -->
+  <div id="cartOverlay" class="cart-overlay"></div>
+  <aside id="cartSidebar" class="cart-sidebar">
+    <div class="cart-header">
+      <h2 class="cart-title">Your Order</h2>
+      <button id="closeCart" class="btn-close" aria-label="Close cart">&times;</button>
+    </div>
+
+    <div id="cartItems" class="cart-items"></div>
+    <div id="cartEmpty" class="cart-empty">
+      <p>Your cart is empty.</p>
+    </div>
+
+    <div id="cartSummary" class="cart-summary" style="display:none;">
+      <div class="summary-row"><span>Subtotal</span><span id="subtotal">Rs 0</span></div>
+      <div class="summary-row" id="fbrRow" style="display:none;"><span id="fbrLabel">FBR Tax</span><span id="fbrTax">Rs 0</span></div>
+      <div class="summary-row" id="praRow" style="display:none;"><span id="praLabel">PRA Tax</span><span id="praTax">Rs 0</span></div>
+      <div class="summary-row total"><span>Total</span><span id="total">Rs 0</span></div>
+
+      <!-- ===== PAYMENT METHOD SELECTOR ===== -->
+      <div class="cart-choice-group">
+        <div class="cart-choice-label">Payment Method</div>
+        <div class="cart-choice-grid">
+          <button type="button" class="choice-btn active" data-payment-method="cash">
+            <span class="choice-icon">💵</span>
+            <span class="choice-text">Cash</span>
+          </button>
+          <button type="button" class="choice-btn" data-payment-method="card">
+            <span class="choice-icon">💳</span>
+            <span class="choice-text">Card</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="cart-instructions">
+        <label for="instructions">Special Instructions (optional)</label>
+        <textarea id="instructions" placeholder="Any allergies or special requests?"></textarea>
+      </div>
+      <button id="placeOrderBtn" class="btn-place-order">Place Order</button>
+    </div>
+  </aside>
+
+  <!-- ===================== SUCCESS MODAL ===================== -->
+  <div id="successModal" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-eyebrow">Order placed</div>
+      <div class="modal-order-num" id="orderNumDisplay">TC-00000</div>
+      <p class="modal-text">Your order went to the kitchen. Track its status under Orders.</p>
+      <button class="modal-btn" onclick="document.getElementById('successModal').classList.remove('open')">Done</button>
+    </div>
+  </div>
+
+  <!-- ===================== ORDERS MODAL ===================== -->
+  <div id="ordersModal" class="modal">
+    <div class="modal-backdrop" onclick="document.getElementById('ordersModal').classList.remove('open')"></div>
+    <div class="modal-card" style="max-width:600px;text-align:left;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <h3 class="modal-title" style="margin:0;">Orders</h3>
+        <button class="btn-close" onclick="document.getElementById('ordersModal').classList.remove('open')">&times;</button>
+      </div>
+      <div id="ordersList"></div>
+    </div>
+  </div>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="footer">
+    <p>The Cakery · Prices in PKR, exclusive of GST</p>
+  </footer>
+
+  <!-- ===================== SCRIPTS ===================== -->
+  <script src="js/supabase-config.js?v=9"></script>
+  <script src="js/menu-data.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/menu-store.js?v=9"></script>
+  <script src="js/customer.js?v=9"></script>
+</body>
+</html>

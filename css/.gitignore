@@ -1,0 +1,21 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Node (if you add tooling later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output (none for now, but kept for future)
+dist/
+build/
+
+# Env / secrets — NEVER commit these
+.env
+.env.local
+.env.*.local
