@@ -135,7 +135,7 @@ function showTablePicker() {
     updateActiveBadge();
     if (DOM.tableBadge) {
       DOM.tableBadge.style.display = 'inline-flex';
-      DOM.tableBadge.innerHTML = '🍽️ Table ' + n;
+      DOM.tableBadge.innerHTML = 'Table ' + n;
     }
     modal.remove();
     // Track this table's pending orders.
@@ -156,7 +156,7 @@ async function startApp() {
   // Show the table badge for Dine In.
   if (DOM.tableBadge && STATE.table) {
     DOM.tableBadge.style.display = 'inline-flex';
-    DOM.tableBadge.innerHTML = '🍽️ Table ' + STATE.table;
+    DOM.tableBadge.innerHTML = 'Table ' + STATE.table;
   }
 
   // 2. Load saved cart & orders from localStorage (keyed by table number)
@@ -222,6 +222,16 @@ async function startApp() {
   subscribeTax(() => updateCart());
 }
 
+// Monogram initials for items without a photo (e.g. "Iced Latte" -> "IL")
+function initialsOf(name) {
+  return String(name || '')
+    .split(/\s+/)
+    .filter(w => /^[A-Za-z]/.test(w))
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('') || 'TC';
+}
+
 // Apply brand settings to the UI (name, logo, tagline)
 function applyBrandToUI() {
   const b = getBrand();
@@ -232,7 +242,7 @@ function applyBrandToUI() {
     if (b.logoUrl) {
       el.innerHTML = '<img src="' + escapeHTML(b.logoUrl) + '" alt="logo">';
     } else {
-      el.textContent = b.logoEmoji || '🧁';
+      el.textContent = ''; // B&W redesign: wordmark only, no emoji mark
     }
   });
   document.querySelectorAll('[data-brand-name]').forEach(el => {
@@ -299,7 +309,7 @@ function renderMenu() {
   DOM.menuGrid.innerHTML = items.map(item => {
     const imgBlock = item.imageUrl
       ? '<div class="menu-card-image"><img src="' + escapeHTML(item.imageUrl) + '" alt="' + escapeHTML(item.name) + '"></div>'
-      : '<div class="menu-card-image">' + escapeHTML(item.emoji || '🍽️') + '</div>';
+      : '<div class="menu-card-image menu-card-image--text">' + escapeHTML(initialsOf(item.name)) + '</div>';
     const priceBlock = item.originalPrice
       ? '<span class="menu-card-price"><span class="orig">' + formatPrice(item.originalPrice) + '</span> ' + formatPrice(item.price) + '</span>'
       : '<span class="menu-card-price">' + formatPrice(item.price) + '</span>';
@@ -544,7 +554,7 @@ function handleOrderUpdate(payload) {
   if (updated.status === 'served' || updated.status === 'rejected') {
     // Fire the final alert first…
     const msgs = {
-      served:  'Order #' + order.order_number + ' served — enjoy! 🎉',
+      served:  'Order #' + order.order_number + ' served — enjoy!',
       rejected: 'Order #' + order.order_number + ' was rejected'
     };
     if (msgs[updated.status] && oldStatus !== updated.status) {
@@ -597,11 +607,11 @@ function renderOrdersList() {
     const stepIdx = { received: 0, accepted: 1, ready: 2, served: 3 }[order.status] ?? 0;
     const labels = ['Received', 'Preparing', 'Ready', 'Served'];
     const isRejected = order.status === 'rejected';
-    const otLabel = order.order_type === 'takeaway' ? '🛍️ Take Away' : '🍽️ Dine In';
-    const pmLabel = order.payment_method === 'card' ? '💳 Card' : '💵 Cash';
+    const otLabel = order.order_type === 'takeaway' ? 'Take Away' : 'Dine In';
+    const pmLabel = order.payment_method === 'card' ? 'Card' : 'Cash';
     const tableLabel = (order.order_type === 'takeaway' || !order.table_number || order.table_number === 0)
       ? otLabel
-      : '🍽️ Table ' + order.table_number;
+      : 'Table ' + order.table_number;
     return `
       <div class="track-card">
         <div class="track-header">

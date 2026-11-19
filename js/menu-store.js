@@ -25,7 +25,7 @@
 // If menu-data.js failed to load (should never happen), keep a tiny
 // fallback so the page does not crash.
 const MENU_DATA_FALLBACK = [
-  { id: 'br01', name: 'Baguette', category: 'breads', price: 350, desc: 'Classic French crusty baguette', emoji: '🥖' }
+  { id: 'br01', name: 'Baguette', category: 'breads', price: 350, desc: 'Classic French crusty baguette' }
 ];
 
 // ----------------------------------------------------------------
@@ -67,7 +67,7 @@ function _normalizeRow(row) {
     price: Number(row.price) || 0,
     originalPrice: row.original_price != null ? Number(row.original_price) : undefined,
     desc: row.description || '',
-    emoji: row.emoji || '🍽️',
+    emoji: row.emoji || '',
     imageUrl: row.image_url || '',
     popular: !!row.popular,
     available: row.available !== false,    // default true
@@ -137,7 +137,7 @@ async function loadBrand() {
           brandName: data.brand_name || 'The Cakery',
           tagline: data.tagline || 'Order From Your Table',
           logoUrl: data.logo_url || '',
-          logoEmoji: data.logo_emoji || '🧁',
+          logoEmoji: data.logo_emoji || '',
           accentColor: data.accent_color || '#1C1C1A'
         };
         _writeCache(BRAND_CACHE_KEY, _brandCache);
@@ -153,7 +153,7 @@ async function loadBrand() {
     brandName: 'The Cakery',
     tagline: 'Order From Your Table',
     logoUrl: 'images/logo.png',
-    logoEmoji: '🧁',
+    logoEmoji: '',
     accentColor: '#1C1C1A'
   };
   return _brandCache;
@@ -167,7 +167,7 @@ function getBrand() {
     brandName: 'The Cakery',
     tagline: 'Order From Your Table',
     logoUrl: 'images/logo.png',
-    logoEmoji: '🧁',
+    logoEmoji: '',
     accentColor: '#1C1C1A'
   };
 }
@@ -186,7 +186,7 @@ async function saveMenuItem(item) {
     price: Number(item.price) || 0,
     original_price: item.originalPrice != null && item.originalPrice !== '' ? Number(item.originalPrice) : null,
     description: item.desc || '',
-    emoji: item.emoji || '🍽️',
+    emoji: item.emoji || '',
     image_url: item.imageUrl || '',
     popular: !!item.popular,
     available: item.available !== false,
@@ -229,7 +229,7 @@ async function seedMenuFromLocal() {
     price: Number(it.price) || 0,
     original_price: it.originalPrice != null ? Number(it.originalPrice) : null,
     description: it.desc || '',
-    emoji: it.emoji || '🍽️',
+    emoji: it.emoji || '',
     image_url: it.imageUrl || '',
     popular: !!it.popular,
     available: true,
@@ -255,7 +255,7 @@ async function saveBrandSettings(b) {
     brand_name: b.brandName || 'The Cakery',
     tagline: b.tagline || 'Order From Your Table',
     logo_url: b.logoUrl || '',
-    logo_emoji: b.logoEmoji || '🧁',
+    logo_emoji: b.logoEmoji || '',
     accent_color: b.accentColor || '#1C1C1A'
   };
   const { data, error } = await supabaseClient
@@ -676,7 +676,7 @@ async function loadSalesStats(range) {
     servedOrAll.forEach(o => {
       (o.items || []).forEach(it => {
         const key = it.name || it.id || 'Unknown';
-        if (!itemAgg[key]) itemAgg[key] = { name: key, qty: 0, revenue: 0, emoji: it.emoji || '🍽️' };
+        if (!itemAgg[key]) itemAgg[key] = { name: key, qty: 0, revenue: 0, emoji: it.emoji || '' };
         itemAgg[key].qty += Number(it.qty || 1);
         itemAgg[key].revenue += (Number(it.price || 0) * Number(it.qty || 1));
       });

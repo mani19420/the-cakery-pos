@@ -1,3 +1,13 @@
+// Monogram initials for items without a photo
+function initialsOf(name) {
+  return String(name || '')
+    .split(/\s+/)
+    .filter(w => /^[A-Za-z]/.test(w))
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('') || 'TC';
+}
+
 /* ===================================================================
    The Cakery POS - Admin Panel Logic
    =================================================================== */
@@ -32,19 +42,19 @@ const A = {
 // Categories (matches the customer menu's category slugs)
 // Named ADMIN_CATS to avoid clashing with CATEGORIES in menu-data.js.
 const ADMIN_CATS = [
-  { slug: 'breads',        label: 'Breads',          emoji: '🥖' },
-  { slug: 'viennoiserie',  label: 'Viennoiserie',    emoji: '🥐' },
-  { slug: 'patisserie',    label: 'Patisserie',      emoji: '🥧' },
-  { slug: 'cakes',         label: 'Signature Cakes', emoji: '🎂' },
-  { slug: 'slices',        label: 'By The Slice',    emoji: '🍰' },
-  { slug: 'chefswhisk',    label: "Chef's Whisk",    emoji: '🍫' },
-  { slug: 'sandwiches',    label: 'Sandwiches',      emoji: '🥪' },
-  { slug: 'coffees',       label: 'Coffees',         emoji: '☕' },
-  { slug: 'matcha',        label: 'Matcha',          emoji: '🍵' },
-  { slug: 'nocaffeine',    label: 'No Caffeine',     emoji: '🥤' },
-  { slug: 'ontherocks',    label: 'On The Rocks',    emoji: '🍹' },
-  { slug: 'tea',           label: 'Tea',             emoji: '🍵' },
-  { slug: 'addons',        label: 'Add-Ons',         emoji: '➕' }
+  { slug: 'breads',        label: 'Breads' },
+  { slug: 'viennoiserie',  label: 'Viennoiserie' },
+  { slug: 'patisserie',    label: 'Patisserie' },
+  { slug: 'cakes',         label: 'Signature Cakes' },
+  { slug: 'slices',        label: 'By The Slice' },
+  { slug: 'chefswhisk',    label: "Chef's Whisk" },
+  { slug: 'sandwiches',    label: 'Sandwiches' },
+  { slug: 'coffees',       label: 'Coffees' },
+  { slug: 'matcha',        label: 'Matcha' },
+  { slug: 'nocaffeine',    label: 'No Caffeine' },
+  { slug: 'ontherocks',    label: 'On The Rocks' },
+  { slug: 'tea',           label: 'Tea' },
+  { slug: 'addons',        label: 'Add-Ons' }
 ];
 
 // ----------------------------------------------------------------
@@ -259,7 +269,7 @@ function renderMenuTable() {
   const tbody = document.querySelector('#menuTable tbody');
   if (!A.menu.length) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-row">
-      No menu items in the database. Click <b>📥 Seed from local</b> to import the default menu, or <b>+ Add item</b> to create one.
+      No menu items in the database. Click <b>Seed from local</b> to import the default menu, or <b>+ Add item</b> to create one.
     </td></tr>`;
     return;
   }
@@ -293,14 +303,14 @@ function renderMenuTable() {
   tbody.innerHTML = items.map(i => {
     const img = i.imageUrl
       ? `<div class="cell-image"><img src="${escapeHTML(i.imageUrl)}" alt=""></div>`
-      : `<div class="cell-image">${escapeHTML(i.emoji || '🍽️')}</div>`;
+      : `<div class="cell-image cell-image--text">${escapeHTML(initialsOf(i.name))}</div>`;
     const priceCell = i.originalPrice
       ? `<span class="cell-sale"><span class="orig">Rs ${Number(i.originalPrice).toLocaleString('en-PK')}</span>Rs ${Number(i.price).toLocaleString('en-PK')}</span>`
       : `<span class="cell-price">Rs ${Number(i.price).toLocaleString('en-PK')}</span>`;
     const statusBadge = i.available
       ? '<span class="badge badge-available">Available</span>'
       : '<span class="badge badge-hidden">Hidden</span>';
-    const popularBadge = i.popular ? ' <span class="badge badge-popular">★ Popular</span>' : '';
+    const popularBadge = i.popular ? ' <span class="badge badge-popular">Popular</span>' : '';
     return `<tr data-item-id="${escapeHTML(i.id)}">
       <td class="drag-cell"><span class="drag-handle" title="Drag to reorder (shown top → bottom on the customer menu)">⠿</span></td>
       <td>${img}</td>
@@ -311,8 +321,8 @@ function renderMenuTable() {
       <td>${statusBadge}${popularBadge}</td>
       <td>
         <div class="row-actions">
-          <button class="row-btn" data-edit="${escapeHTML(i.id)}">✏️ Edit</button>
-          <button class="row-btn danger" data-del="${escapeHTML(i.id)}">🗑️ Delete</button>
+          <button class="row-btn" data-edit="${escapeHTML(i.id)}">Edit</button>
+          <button class="row-btn danger" data-del="${escapeHTML(i.id)}">Delete</button>
         </div>
       </td>
     </tr>`;
@@ -398,7 +408,7 @@ async function persistMenuOrder(tbody) {
 
   if (!isSupabaseReady()) {
     // Demo mode: order persists in this session's list only (no DB).
-    showToast('✓ Menu order updated (demo mode — connect Supabase to save permanently)', 'success');
+    showToast('Menu order updated (demo mode — connect Supabase to save permanently)', 'success');
     renderMenuTable();
     return;
   }
@@ -407,7 +417,7 @@ async function persistMenuOrder(tbody) {
     for (const it of changed) {
       await saveMenuItem(it);   // upsert with the new sort_order
     }
-    showToast('✓ Menu order saved — customers see the new order instantly', 'success');
+    showToast('Menu order saved — customers see the new order instantly', 'success');
     await refreshMenu();
   } catch (e) {
     showToast('Order save failed: ' + e.message, 'error');
@@ -416,7 +426,7 @@ async function persistMenuOrder(tbody) {
 
 function catLabel(slug) {
   const c = ADMIN_CATS.find(x => x.slug === slug);
-  return c ? `${c.emoji} ${c.label}` : slug;
+  return c ? `${c.label}` : slug;
 }
 
 // ----------------------------------------------------------------
@@ -428,7 +438,7 @@ async function seedMenu() {
   try {
     showToast('Seeding menu…', 'info');
     const n = await seedMenuFromLocal();
-    showToast(`✓ ${n} items imported`, 'success');
+    showToast(`${n} items imported`, 'success');
     await refreshMenu();
   } catch (e) {
     showToast('Seed failed: ' + e.message, 'error');
@@ -452,7 +462,7 @@ function openItemModal(item) {
   document.getElementById('itemPrice').value = item ? item.price : '';
   document.getElementById('itemOriginalPrice').value = item && item.originalPrice ? item.originalPrice : '';
   document.getElementById('itemDesc').value = item ? (item.desc || '') : '';
-  document.getElementById('itemEmoji').value = item ? (item.emoji || '🍽️') : '🍽️';
+  // emoji field deprecated in B&W redesign
   document.getElementById('itemPopular').checked = item ? !!item.popular : false;
   document.getElementById('itemAvailable').checked = item ? item.available !== false : true;
   renderItemImgPreview(A.pendingImage);
@@ -479,7 +489,7 @@ async function handleItemFormSubmit(e) {
   const price = parseFloat(document.getElementById('itemPrice').value);
   const originalPrice = document.getElementById('itemOriginalPrice').value.trim();
   const desc = document.getElementById('itemDesc').value.trim();
-  const emoji = document.getElementById('itemEmoji').value.trim() || '🍽️';
+  const emoji = '';
   const popular = document.getElementById('itemPopular').checked;
   const available = document.getElementById('itemAvailable').checked;
 
@@ -503,7 +513,7 @@ async function handleItemFormSubmit(e) {
 
   try {
     await saveMenuItem(payload);
-    showToast(A.editingItemId ? '✓ Item updated' : '✓ Item added', 'success');
+    showToast(A.editingItemId ? 'Item updated' : 'Item added', 'success');
     closeItemModal();
     await refreshMenu();
   } catch (err) {
@@ -514,7 +524,7 @@ async function handleItemFormSubmit(e) {
 function confirmDelete(item) {
   if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
   deleteMenuItem(item.id).then(() => {
-    showToast('✓ Item deleted', 'success');
+    showToast('Item deleted', 'success');
     refreshMenu();
   }).catch(err => showToast('Delete failed: ' + err.message, 'error'));
 }
@@ -527,10 +537,10 @@ async function loadBrandIntoForm() {
     A.brand = await loadBrand();
   } catch (e) { A.brand = getBrand(); }
   document.getElementById('brandName').textContent = A.brand.brandName || 'The Cakery';
-  document.getElementById('brandEmoji').textContent = A.brand.logoEmoji || '🧁';
+  document.getElementById('brandEmoji').textContent = '';
   document.getElementById('brandNameInput').value = A.brand.brandName || '';
   document.getElementById('brandTagline').value = A.brand.tagline || '';
-  document.getElementById('brandEmojiInput').value = A.brand.logoEmoji || '🧁';
+  document.getElementById('brandEmojiInput').value = '';
   document.getElementById('brandAccentColor').value = A.brand.accentColor || '#1C1C1A';
   renderLogoPreview(A.brand.logoUrl || '');
 }
@@ -546,13 +556,13 @@ async function saveBrand() {
   const payload = {
     brandName: document.getElementById('brandNameInput').value.trim() || 'The Cakery',
     tagline: document.getElementById('brandTagline').value.trim() || 'Order From Your Table',
-    logoEmoji: document.getElementById('brandEmojiInput').value.trim() || '🧁',
+    logoEmoji: '',
     accentColor: document.getElementById('brandAccentColor').value || '#1C1C1A',
     logoUrl: A.pendingLogo || A.brand.logoUrl || ''
   };
   try {
     await saveBrandSettings(payload);
-    showToast('✓ Brand saved', 'success');
+    showToast('Brand saved', 'success');
     await loadBrandIntoForm();
   } catch (err) {
     showToast('Save failed: ' + err.message, 'error');
@@ -580,7 +590,7 @@ function renderDashboard() {
 
   const top = (s.topItems || [])[0];
   if (top) {
-    document.getElementById('kpiTopItem').textContent = (top.emoji || '🍽️') + ' ' + top.name;
+    document.getElementById('kpiTopItem').textContent = top.name;
     document.getElementById('kpiTopItemSub').textContent = `${top.qty} sold · ${formatPrice(top.revenue)}`;
   } else {
     document.getElementById('kpiTopItem').textContent = '—';
@@ -592,7 +602,7 @@ function renderDashboard() {
   if (s.topItems && s.topItems.length) {
     list.innerHTML = s.topItems.slice(0, 8).map(t => `
       <div class="top-item">
-        <div class="top-item-emoji">${escapeHTML(t.emoji || '🍽️')}</div>
+        <div class="top-item-emoji top-item-emoji--text">${escapeHTML(initialsOf(t.name))}</div>
         <div class="top-item-info">
           <div class="top-item-name">${escapeHTML(t.name)}</div>
           <div class="top-item-meta">${t.qty} sold</div>
@@ -707,7 +717,7 @@ function renderAllOrdersTable() {
     try {
       const { error } = await supabaseClient.from('orders').delete().eq('id', b.dataset.delOrder);
       if (error) throw error;
-      showToast('✓ Order deleted', 'success');
+      showToast('Order deleted', 'success');
       await loadAllOrders();
       await loadDashboard();
     } catch (err) {
@@ -765,8 +775,8 @@ function renderUsersTable() {
       <td>${u.lastLoginAt ? formatDateTime(u.lastLoginAt) : '—'}</td>
       <td>
         <div class="row-actions">
-          <button class="row-btn" data-edit-user="${u.id}">✏️ Edit</button>
-          <button class="row-btn danger" data-del-user="${u.id}">🗑️ Delete</button>
+          <button class="row-btn" data-edit-user="${u.id}">Edit</button>
+          <button class="row-btn danger" data-del-user="${u.id}">Delete</button>
         </div>
       </td>
     </tr>`;
@@ -845,7 +855,7 @@ async function handleUserFormSubmit(e) {
       username, displayName, role, active,
       password: password || undefined
     });
-    showToast(A.editingUserId ? '✓ User updated' : '✓ User created', 'success');
+    showToast(A.editingUserId ? 'User updated' : 'User created', 'success');
     closeUserModal();
     await loadUsers();
   } catch (err) {
@@ -856,7 +866,7 @@ async function handleUserFormSubmit(e) {
 function confirmDeleteUser(user) {
   if (!confirm(`Delete user "${user.username}"? They will no longer be able to log in to POS.`)) return;
   deleteStaffUser(user.id).then(() => {
-    showToast('✓ User deleted', 'success');
+    showToast('User deleted', 'success');
     loadUsers();
   }).catch(err => showToast('Delete failed: ' + err.message, 'error'));
 }
@@ -891,7 +901,7 @@ function renderBeverageCategoryCheckboxes(selected) {
   grid.innerHTML = cats.map(c => `
     <label>
       <input type="checkbox" data-bev-cat="${c.id}" ${sel.has(c.id) ? 'checked' : ''}>
-      ${c.icon || '🍽️'} ${escapeHTML(c.name)}
+      ${escapeHTML(c.name)}
     </label>
   `).join('');
   grid.querySelectorAll('[data-bev-cat]').forEach(cb => cb.addEventListener('change', renderTaxPreview));
@@ -964,7 +974,7 @@ async function saveTax() {
   };
   try {
     await saveTaxSettings(payload);
-    showToast('✓ Tax settings saved', 'success');
+    showToast('Tax settings saved', 'success');
     await loadTaxIntoForm();
   } catch (err) {
     showToast('Save failed: ' + err.message, 'error');

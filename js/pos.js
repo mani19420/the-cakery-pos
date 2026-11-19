@@ -295,7 +295,7 @@ function handleRealtimeEvent(payload) {
 // v9: the popup now fights for attention even if the POS is in a
 // background tab / different window:
 //   1. A desktop Notification pops on the OS level (if permission granted).
-//   2. document.title flashes "🔔 NEW ORDER!" until staff returns.
+//   2. document.title flashes "NEW ORDER!" until staff returns.
 //   3. On return (visibilitychange), the popup is guaranteed re-shown
 //      for any order placed while the tab was hidden.
 //   4. Sound plays regardless (browsers may throttle, but on focus it retries).
@@ -307,7 +307,7 @@ const _titleFlash = {
     this.base = this.base || document.title;
     let flip = false;
     this.timer = setInterval(() => {
-      document.title = flip ? '🔔 NEW ORDER! — ' + this.base : this.base;
+      document.title = flip ? 'NEW ORDER! — ' + this.base : this.base;
       flip = !flip;
     }, 900);
   },
@@ -331,7 +331,7 @@ function _showDesktopNotification(order, itemCount) {
     const body = '#' + order.order_number + ' · Table ' + order.table_number +
                  ' · ' + itemCount + ' item' + (itemCount !== 1 ? 's' : '') +
                  ' · ' + formatPrice(order.total);
-    const n = new Notification('🔔 New order — The Cakery', { body: body, tag: order.id, requireInteraction: false });
+    const n = new Notification('New order — The Cakery', { body: body, tag: order.id, requireInteraction: false });
     n.onclick = () => { window.focus(); n.close(); };
   } catch (e) {}
 }
@@ -354,11 +354,11 @@ function showNewOrderPopup(order) {
   popup.className = 'popup';
   popup.innerHTML = `
     <div class="popup-head">
-      <div class="popup-title"><span class="popup-bell">🔔</span> New order!</div>
+      <div class="popup-title">New order</div>
       <button class="popup-close">&times;</button>
     </div>
     <div class="popup-body">
-      <strong>#${escapeHTML(order.order_number)}</strong> · 🍽️ Table ${order.table_number}<br>
+      <strong>#${escapeHTML(order.order_number)}</strong> · Table ${order.table_number}<br>
       <span style="color:var(--text-muted);">${itemCount} item${itemCount !== 1 ? 's' : ''} · ${formatPrice(order.total)}</span>
     </div>
     <div class="popup-actions">
@@ -518,7 +518,7 @@ function createOrderCardHTML(order) {
   // Manager+ can reject. Owner+manager+cashier can mark ready.
   // Edit button is available for any active (non-served) order if role allows.
   const editBtn = (can('edit') && order.status !== 'served' && order.status !== 'rejected')
-    ? `<button class="btn-action btn-edit" data-edit="${order.id}">✏️ Edit</button>`
+    ? `<button class="btn-action btn-edit" data-edit="${order.id}">Edit</button>`
     : '';
   if (order.status === 'received') {
     const acc = can('accept') ? `<button class="btn-action btn-accept" data-accept="${order.id}">Accept</button>` : '';
@@ -551,11 +551,11 @@ function createOrderCardHTML(order) {
     <article class="order-card ${order.status === 'received' ? 'new' : ''}" data-id="${order.id}">
       <div class="order-card-head">
         <span class="order-num">#${escapeHTML(order.order_number)}</span>
-        <span class="table-tag">${order.order_type === 'takeaway' ? '🛍️ Take Away' : (order.table_number && order.table_number !== 0 ? '🍽️ Table ' + order.table_number : '🍽️ Dine In')}</span>
+        <span class="table-tag">${order.order_type === 'takeaway' ? 'Take Away' : (order.table_number && order.table_number !== 0 ? 'Table ' + order.table_number : 'Dine In')}</span>
       </div>
       <div class="order-time ${timeClass}">
         <i data-lucide="clock" style="width:12px;height:12px;"></i> ${time}
-        <span class="pay-tag">${order.payment_method === 'card' ? '💳 Card' : '💵 Cash'}</span>
+        <span class="pay-tag">${order.payment_method === 'card' ? 'Card' : 'Cash'}</span>
       </div>
       <div class="order-items">
         ${items.map(i => `
@@ -753,7 +753,7 @@ function openEditModal(order) {
       name: i.name || '',
       price: Number(i.price) || 0,
       qty: Number(i.qty) || 1,
-      emoji: i.emoji || '🍽️',
+      emoji: '',
       category: i.category || ''
     }))
   };
@@ -762,8 +762,8 @@ function openEditModal(order) {
   POS_DOM.editOrderTitle.textContent = '#' + order.order_number;
 
   // Meta line: order type + payment method + table
-  const otLabel = EDIT_STATE.order_type === 'takeaway' ? '🛍️ Take Away' : '🍽️ Dine In' + (EDIT_STATE.table_number && EDIT_STATE.table_number !== 0 ? ' · Table ' + EDIT_STATE.table_number : '');
-  const pmLabel = EDIT_STATE.payment_method === 'card' ? '💳 Card' : '💵 Cash';
+  const otLabel = EDIT_STATE.order_type === 'takeaway' ? 'Take Away' : 'Dine In' + (EDIT_STATE.table_number && EDIT_STATE.table_number !== 0 ? ' · Table ' + EDIT_STATE.table_number : '');
+  const pmLabel = EDIT_STATE.payment_method === 'card' ? 'Card' : 'Cash';
   POS_DOM.editOrderMeta.innerHTML = `
     <span class="edit-meta-pill">${otLabel}</span>
     <span class="edit-meta-pill">${pmLabel}</span>
@@ -794,7 +794,7 @@ function renderEditItems() {
   POS_DOM.editItemsList.innerHTML = EDIT_STATE.items.map((it, idx) => `
     <div class="edit-item-row">
       <div class="edit-item-info">
-        <span class="edit-item-emoji">${it.emoji || '🍽️'}</span>
+        
         <div>
           <div class="edit-item-name">${escapeHTML(it.name)}</div>
           <div class="edit-item-price">${formatPrice(it.price)} each</div>
@@ -804,7 +804,7 @@ function renderEditItems() {
         <button class="edit-qty-btn" data-edit-qty-minus="${idx}">−</button>
         <span class="edit-qty-val">${it.qty}</span>
         <button class="edit-qty-btn" data-edit-qty-plus="${idx}">+</button>
-        <button class="edit-remove-btn" data-edit-remove="${idx}" title="Remove">🗑️</button>
+        <button class="edit-remove-btn" data-edit-remove="${idx}" title="Remove">Remove</button>
       </div>
     </div>
   `).join('');
@@ -829,7 +829,7 @@ function renderEditMenu() {
   }
   POS_DOM.editMenuList.innerHTML = filtered.map(it => `
     <button class="edit-menu-item" data-edit-add="${it.id}">
-      <span class="edit-menu-emoji">${it.emoji || '🍽️'}</span>
+      
       <span class="edit-menu-name">${escapeHTML(it.name)}</span>
       <span class="edit-menu-price">${formatPrice(it.price)}</span>
     </button>
@@ -889,7 +889,7 @@ async function saveEditOrder() {
       .select()
       .single();
     if (error) throw error;
-    showToast('✓ Order updated', 'success');
+    showToast('Order updated', 'success');
     closeEditModal();
     await loadAllOrders();
   } catch (err) {
@@ -955,7 +955,7 @@ function setupEditModalListeners() {
       } else {
         EDIT_STATE.items.push({
           id: item.id, name: item.name, price: Number(item.price) || 0,
-          qty: 1, emoji: item.emoji || '🍽️', category: item.category || ''
+          qty: 1, emoji: '', category: item.category || ''
         });
       }
       renderEditItems();

@@ -38,7 +38,7 @@
     <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-brand">
-        <span class="logo-emoji" id="brandEmoji">🧁</span>
+        <span class="logo-emoji" id="brandEmoji" style="display:none"></span>
         <span class="brand-name" id="brandName">The <span class="brand-accent">Cakery</span></span>
         <span class="brand-sep">/</span>
         <span class="brand-sub">Admin</span>
@@ -52,9 +52,9 @@
         <button class="tab" data-tab="brand"><i data-lucide="palette"></i> Brand</button>
       </nav>
       <div class="topbar-actions">
-        <a href="pos.html" class="icon-link" title="Open POS">🖥️ POS</a>
-        <a href="qr.html" class="icon-link" title="QR Generator">🔲 QR</a>
-        <a href="index.html" class="icon-link" title="View Menu">📱 Menu</a>
+        <a href="pos.html" class="icon-link" title="Open POS">POS</a>
+        <a href="qr.html" class="icon-link" title="QR Generator">QR</a>
+        <a href="index.html" class="icon-link" title="View Menu">Menu</a>
         <button id="logoutBtn" class="icon-link danger">⏻ Logout</button>
       </div>
     </header>
@@ -151,7 +151,7 @@
           <h2 class="panel-title">Manage Menu</h2>
         </div>
         <div class="panel-actions">
-          <button class="btn-secondary" id="seedMenuBtn">📥 Seed from local</button>
+          <button class="btn-secondary" id="seedMenuBtn">Seed from local</button>
           <button class="btn-primary" id="addItemBtn">+ Add item</button>
         </div>
       </div>
@@ -412,7 +412,7 @@
             <input type="text" id="itemName" required maxlength="80">
           </label>
           <label>Emoji (optional)
-            <input type="text" id="itemEmoji" maxlength="6" value="🍽️">
+            <input type="hidden" id="itemEmoji" value="">
           </label>
         </div>
         <div class="form-row">
@@ -432,7 +432,7 @@
         </label>
         <div class="form-row">
           <label class="checkbox">
-            <input type="checkbox" id="itemPopular"> Mark as Popular ⭐
+            <input type="checkbox" id="itemPopular"> Mark as Popular
           </label>
           <label class="checkbox">
             <input type="checkbox" id="itemAvailable" checked> Available

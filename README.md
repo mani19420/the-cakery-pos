@@ -53,7 +53,7 @@ Customers scan a QR code at their table → see the menu → place an order. The
 - Each QR opens `index.html?table=N` → the customer lands directly on the menu for their table (no Start Order picker)
 - Download each QR as PNG (high-res, print-ready) — print one per table and stick it on the table
 - Persists table count in localStorage
-- A pre-built `qr-codes/` folder is also included in the zip with all 8 table QR PNGs + an `all-tables.pdf` you can print on one A4 page (regenerate them with your real domain by editing `BASE_URL` in the generator script, or just open `qr.html` after deploying and download fresh QRs)
+- A pre-built `qr-codes/` folder is included in the zip with all 8 table QR PNGs + an `all-tables.pdf` (one A4 page, print + cut) — **already generated with the live URL `https://the-cakery-pos.vercel.app`**, ready to print. If you move to a different domain, regenerate by opening `qr.html` on the new deployment and downloading fresh QRs.
 
 ---
 
@@ -133,10 +133,10 @@ You'll get a URL like `https://the-cakery-pos.vercel.app`. Three pages:
 ### Step 6: Set up your tables
 1. Open `<your-vercel-url>/qr.html`.
 2. The number of tables defaults to **8** — change it if your café has more or fewer.
-3. Download each table's QR as a PNG (or print the pre-built `qr-codes/all-tables.pdf` that ships in the zip — but **regenerate with your real domain** first, see below).
+3. Download each table's QR as a PNG (or print the pre-built `qr-codes/all-tables.pdf` — ships in the zip already pointed at `https://the-cakery-pos.vercel.app`).
 4. Place each printed QR on the matching physical table.
 
-> **Important:** the `qr-codes/` folder in the zip was generated with a placeholder URL. After you deploy, open `qr.html` on your live domain and download fresh QRs — those will point to your real URL automatically (the generator uses `window.location`).
+> **Note:** the `qr-codes/` folder shipped in the zip is generated with the real deployment URL (`https://the-cakery-pos.vercel.app`) — safe to print as-is. If you redeploy under a **different** domain, open `qr.html` there and download fresh QRs; the generator always uses your current domain automatically.
 
 ### Step 7: Run the POS
 1. On your POS computer/tablet, open `<your-vercel-url>/pos.html`.
@@ -176,7 +176,7 @@ the-cakery-pos/
 │   ├── menu-store.js       # Menu/brand/tax store + dual-tax calculation
 │   ├── admin.js             # Admin panel logic
 │   └── pos.js              # POS dashboard logic
-├── qr-codes/               # Pre-built QR codes for tables 1–8 (placeholder URL)
+├── qr-codes/               # Pre-built QR codes for tables 1–8 (live URL, print-ready)
 │   ├── table-1.png … table-8.png   # One QR per table
 │   └── all-tables.pdf      # All 8 on one A4 page (print + cut)
 └── assets/                 # (empty — uses emoji icons, no images needed)
@@ -335,7 +335,7 @@ All three pages (customer, POS, admin) now share one consistent bakery brand sys
 
 - **Take Away removed** — Dine In only now. Every table has its own QR code, so the customer's table is always known from the URL.
 - **Menu auto-opens on QR scan** — no more "Start Order" picker. Scanning the table QR (`index.html?table=N`) lands the customer directly on the menu for that table. A simple "What's your table number?" prompt (1–8) only appears if they open the page with no `?table=N`.
-- **8 table QR codes** — pre-built PNGs for tables 1–8 are in `qr-codes/`, plus an `all-tables.pdf` (one A4 page, print + cut). Regenerate with your real domain by opening `qr.html` on your live deployment.
+- **8 table QR codes** — pre-built PNGs for tables 1–8 are in `qr-codes/`, plus an `all-tables.pdf` (one A4 page, print + cut), all generated with the live URL `https://the-cakery-pos.vercel.app` — print-ready as-is. If you change domains, open `qr.html` on the new deployment to regenerate.
 - **New order popup moved to top-center** — slides down from the top of the POS screen (was top-right), with a 🔔 bell icon that rings and the bell sound (3 rising beeps). More visible from across the counter.
 
 **v6** (previous) introduced the payment-method-aware PRA tax: FBR 18% on food (cash or card) + PRA 16% on Cash / 8% on Card for beverages. See `sql/migration-v6.sql`.

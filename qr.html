@@ -162,7 +162,7 @@
       <input type="number" id="tableCount" value="8" min="1" max="50">
     </div>
     <div class="nav-links">
-      <a href="admin.html" target="_blank" class="nav-link outline">⚙️ Admin</a>
+      <a href="admin.html" target="_blank" class="nav-link outline">Admin</a>
       <a href="pos.html" target="_blank" class="nav-link">Open POS</a>
       <a href="index.html" target="_blank" class="nav-link outline">View Menu</a>
     </div>
@@ -195,7 +195,11 @@
       const count = parseInt(tableInput.value) || 6;
       if (count > 0) localStorage.setItem(STORAGE_KEY, count);
 
-      const baseUrl = window.location.href.split('qr.html')[0];
+      // Robust base URL (v9.1): works on Vercel clean URLs (/qr),
+      // on /qr.html, on localhost and in subdirectory deploys.
+      // The old `location.href.split('qr.html')` broke on Vercel,
+      // where the page is served as /qr — producing /qrindex.html (404).
+      const baseUrl = new URL('./', window.location.href).href;
       const grid = document.getElementById('qrGrid');
       grid.innerHTML = '';
 
