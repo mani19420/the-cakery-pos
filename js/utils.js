@@ -154,6 +154,25 @@ async function insertOrder(orderPayload) {
   }
 }
 
+// Fetch a single order by id (customer status polling fallback)
+async function fetchOrderById(orderId) {
+  if (_isDemoMode()) {
+    return _demoRead().find(o => o.id === orderId) || null;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.warn('fetchOrderById error:', err.message);
+    return null;
+  }
+}
+
 // Fetch all active orders for POS (received/accepted/ready)
 async function fetchActiveOrders() {
   if (_isDemoMode()) {
@@ -346,7 +365,7 @@ if (typeof window !== 'undefined') {
   Object.assign(window, {
     CAKERY, formatPrice, formatTime, formatDateTime, timeAgo,
     generateOrderNumber, calcCartTotals,
-    insertOrder, fetchActiveOrders, fetchServedOrders,
+    insertOrder, fetchActiveOrders, fetchServedOrders, fetchOrderById,
     updateOrderStatus, rejectOrder,
     subscribeToOrders, subscribeToOrder,
     saveTableState, loadTableState, clearTableState,

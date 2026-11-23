@@ -121,6 +121,14 @@ img { max-width: 100%; display: block; }
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0 6px;
 }
+/* Gold pill on the espresso Cart button — the customer always knows
+   how many items they've added without opening the cart. */
+.btn-cart .cart-count {
+  background: var(--accent); color: #fff;
+  min-width: 22px; height: 22px;
+  font-size: 0.76rem;
+  box-shadow: 0 1px 3px rgba(59, 42, 30, 0.35);
+}
 .btn-ghost .cart-count {
   background: var(--accent); color: #fff;
 }
@@ -332,6 +340,32 @@ img { max-width: 100%; display: block; }
   border-color: var(--accent-dark);
 }
 .btn-add:active { transform: translateY(1px); }
+/* Item already in the cart: gold state + live qty ("Add · 2"). */
+.btn-add.added {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+.btn-add.added:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+/* ------------------ Status popup (order stage alert) ------------------ */
+.status-popup-card {
+  animation: popupIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+.status-popup-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem; font-weight: 600;
+  color: var(--espresso);
+  letter-spacing: -0.01em;
+  margin: 2px 0 6px;
+}
+@keyframes popupIn {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
 .no-results {
   text-align: center; padding: 60px 20px;
   color: var(--text-muted); font-size: 0.9rem;

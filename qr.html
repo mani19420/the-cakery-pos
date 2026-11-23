@@ -195,11 +195,26 @@
       const count = parseInt(tableInput.value) || 6;
       if (count > 0) localStorage.setItem(STORAGE_KEY, count);
 
-      // Robust base URL (v9.1): works on Vercel clean URLs (/qr),
-      // on /qr.html, on localhost and in subdirectory deploys.
-      // The old `location.href.split('qr.html')` broke on Vercel,
-      // where the page is served as /qr — producing /qrindex.html (404).
-      const baseUrl = new URL('./', window.location.href).href;
+      // Robust base URL (v12.1): resolves to the directory that ACTUALLY
+      // contains index.html, regardless of how the qr page is served.
+      // The old `new URL('./', window.location.href)` worked on plain
+      // localhost, but on Vercel clean URLs the page is served as /qr
+      // and Vercel often normalises that to /qr/ — at which point
+      // `./` resolves to /qr/ and the QR encodes /qr/index.html (404).
+      // That made every printed QR open a blank page. This resolver
+      // strips the qr segment (and any .html file name) from the
+      // pathname, so it lands on the real parent directory of index.html.
+      function resolveBaseRoot(href) {
+        const u = new URL(href);
+        let p = u.pathname;
+        // Strip any trailing ".html" file name (qr.html, index.html, …)
+        p = p.replace(/\/[^\/]*\.(html?)$/i, '/');
+        // Strip a clean-URL "qr" segment with or without trailing slash
+        p = p.replace(/\/qr\/?$/i, '/');
+        if (!p.endsWith('/')) p += '/';
+        return u.origin + p;
+      }
+      const baseUrl = resolveBaseRoot(window.location.href);
       const grid = document.getElementById('qrGrid');
       grid.innerHTML = '';
 

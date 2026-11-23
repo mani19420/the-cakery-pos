@@ -203,6 +203,11 @@ async function startApp() {
     }
   });
 
+  // 5b. Polling safety net: realtime events can be missed (phone asleep,
+  // tab reloaded, brief disconnect). Check active orders every few
+  // seconds so the customer still gets their chime + popup.
+  startStatusPolling();
+
   // 6. Update active badge
   updateActiveBadge();
 
@@ -326,6 +331,22 @@ function renderMenu() {
   }).join('');
 
   if (window.lucide) lucide.createIcons();
+  refreshAddButtons();
+}
+
+// ----------------------------------------------------------------
+// ADD BUTTONS — show what's already in the cart ("Add · 2")
+// ----------------------------------------------------------------
+// The customer should see at a glance how many of each item they've
+// taken without opening the cart. Updates buttons in place (no full
+// menu re-render, so scroll position is preserved).
+function refreshAddButtons() {
+  document.querySelectorAll('.btn-add[data-add]').forEach(btn => {
+    const item = STATE.cart.find(i => i.id === btn.dataset.add);
+    const qty = item ? item.qty : 0;
+    btn.classList.toggle('added', qty > 0);
+    btn.textContent = qty > 0 ? 'Add · ' + qty : 'Add';
+  });
 }
 
 // ----------------------------------------------------------------
@@ -360,6 +381,8 @@ function updateCart() {
     DOM.cartCount.textContent = totalItems;
     DOM.cartCount.classList.toggle('hidden', totalItems === 0);
   }
+  // Keep the per-card ADD buttons in sync ("Add · 2") with the cart.
+  refreshAddButtons();
   // Pass the chosen payment method so PRA uses the right rate (cash 16% / card 8%).
   const totals = calcCartTotals(STATE.cart, STATE.paymentMethod);
   const info = totals.taxInfo || (typeof getTaxSettings === 'function' ? getTaxSettings() : null);
@@ -539,6 +562,109 @@ async function placeOrder() {
 // ----------------------------------------------------------------
 // REALTIME ORDER UPDATES
 // ----------------------------------------------------------------
+
+// ---- Notification tone (Web Audio — no audio files needed) ----
+let _audioCtx = null;
+function _ensureAudio() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    return _audioCtx;
+  } catch (e) { return null; }
+}
+// Browsers block sound until the user interacts once — unlock on the
+// first tap so the chime works later when the kitchen accepts.
+document.addEventListener('pointerdown', () => { _ensureAudio(); }, { once: true, capture: true });
+
+// Short chime when the kitchen moves the order to the next stage.
+// Each stage gets its own melody so regulars recognise it by ear.
+function playOrderTone(status) {
+  const ctx = _ensureAudio();
+  const patterns = {
+    accepted: [[660, 0, 130], [880, 160, 200]],                     // rising two-tone
+    ready:    [[523, 0, 130], [659, 150, 130], [784, 300, 260]],    // C-E-G chime
+    served:   [[784, 0, 150], [988, 180, 320]],                     // happy finish
+    rejected: [[330, 0, 220], [247, 240, 340]]                      // falling low
+  };
+  const notes = patterns[status];
+  if (ctx && notes) {
+    try {
+      notes.forEach(([freq, delay, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t0 = ctx.currentTime + delay / 1000;
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur / 1000);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur / 1000 + 0.05);
+      });
+    } catch (e) {}
+  }
+  // Phone vibration (best effort — ignored where unsupported)
+  try {
+    const vibes = {
+      accepted: [120, 80, 120],
+      ready:    [150, 70, 150, 70, 220],
+      served:   [220, 100, 320],
+      rejected: [320]
+    };
+    if (navigator.vibrate && vibes[status]) navigator.vibrate(vibes[status]);
+  } catch (e) {}
+}
+
+// ---- Status popup — tells the customer which stage the order is at ----
+const STATUS_META = {
+  accepted: { eyebrow: 'Good news', title: 'Order is being prepared', sub: 'The kitchen has accepted your order' },
+  ready:    { eyebrow: 'Ready',     title: 'Your order is ready!',     sub: 'Please collect it from the counter' },
+  served:   { eyebrow: 'Served',    title: 'Order served — enjoy!',    sub: 'Your order has been brought to your table' },
+  rejected: { eyebrow: 'Sorry',     title: 'Order was rejected',       sub: 'Please speak to our staff for details' }
+};
+
+function showStatusPopup(order) {
+  const meta = STATUS_META[order.status];
+  if (!meta) return;
+  const old = document.getElementById('statusPopupModal');
+  if (old) old.remove();
+
+  const stepIdx = { received: 0, accepted: 1, ready: 2, served: 3 }[order.status] ?? 0;
+  const labels = ['Received', 'Preparing', 'Ready', 'Served'];
+  const isRejected = order.status === 'rejected';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal open';
+  modal.id = 'statusPopupModal';
+  modal.innerHTML = `
+    <div class="modal-backdrop"></div>
+    <div class="modal-card status-popup-card">
+      <div class="modal-eyebrow">${meta.eyebrow}</div>
+      <div class="modal-order-num" style="margin-bottom:4px;">#${escapeHTML(order.order_number)}</div>
+      <h3 class="status-popup-title">${meta.title}</h3>
+      <p class="modal-text">${meta.sub}</p>
+      ${!isRejected ? `
+      <div class="status-steps" style="margin:18px 0 6px;">
+        <div class="status-line"><div class="status-line-fill" style="width:${(stepIdx / 3) * 100}%"></div></div>
+        ${labels.map((label, idx) => `
+          <div class="status-step ${idx < stepIdx ? 'done' : (idx === stepIdx ? 'active' : '')}">
+            <div class="status-circle">${idx < stepIdx ? '✓' : idx + 1}</div>
+            <span class="status-label">${label}</span>
+          </div>`).join('')}
+      </div>` : ''}
+      <button class="modal-btn" onclick="this.closest('.modal').remove()">Okay</button>
+    </div>
+  `;
+  modal.querySelector('.modal-backdrop').addEventListener('click', () => modal.remove());
+  document.body.appendChild(modal);
+  // Auto-dismiss after 8s — the customer can also tap Okay / backdrop.
+  setTimeout(() => {
+    const m = document.getElementById('statusPopupModal');
+    if (m) m.remove();
+  }, 8000);
+}
+
 function handleOrderUpdate(payload) {
   const updated = payload.new;
   const order = STATE.orders.find(o => o.id === updated.id);
@@ -559,6 +685,8 @@ function handleOrderUpdate(payload) {
     };
     if (msgs[updated.status] && oldStatus !== updated.status) {
       showToast(msgs[updated.status], updated.status === 'rejected' ? 'error' : 'success', 4000);
+      playOrderTone(updated.status);
+      showStatusPopup(order);
     }
     // …then drop it from the local list and persist.
     STATE.orders = STATE.orders.filter(o => o.id !== updated.id);
@@ -577,6 +705,10 @@ function handleOrderUpdate(payload) {
       ready:    'Order #' + order.order_number + ' is ready'
     };
     if (msgs[updated.status]) showToast(msgs[updated.status], 'success', 4000);
+    // Chime + popup: the customer hears AND sees that the order moved
+    // to the next stage.
+    playOrderTone(updated.status);
+    showStatusPopup(order);
   }
 
   updateActiveBadge();
@@ -590,6 +722,25 @@ function updateActiveBadge() {
     DOM.activeBadge.textContent = count;
     DOM.activeBadge.classList.toggle('hidden', count === 0);
   }
+}
+
+// ----------------------------------------------------------------
+// STATUS POLLING (safety net for missed realtime events)
+// ----------------------------------------------------------------
+let _pollTimer = null;
+function startStatusPolling() {
+  if (_pollTimer) return;   // already running
+  _pollTimer = setInterval(async () => {
+    const active = STATE.orders.filter(o => o.status !== 'served' && o.status !== 'rejected');
+    for (const o of active) {
+      try {
+        const rec = await fetchOrderById(o.id);
+        if (rec && rec.status && rec.status !== o.status) {
+          handleOrderUpdate({ eventType: 'UPDATE', new: rec });
+        }
+      } catch (e) {}   // network hiccup — next tick will retry
+    }
+  }, 4000);
 }
 
 // ----------------------------------------------------------------
