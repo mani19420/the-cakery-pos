@@ -781,7 +781,7 @@ img { max-width: 100%; display: block; }
   position: fixed;
   right: 22px;
   bottom: calc(22px + env(safe-area-inset-bottom, 0px));  /* clear of iOS home bar */
-  width: 56px; height: 56px;
+  width: 64px; height: 64px;
   border-radius: 50%;
   border: none;
   background: var(--espresso);
@@ -789,27 +789,27 @@ img { max-width: 100%; display: block; }
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   z-index: 150;                 /* above content/navbar(100), below overlay(200) */
-  box-shadow: 0 8px 24px rgba(43, 33, 26, 0.28);
+  box-shadow: 0 10px 28px rgba(43, 33, 26, 0.30);
   transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 .float-cart-btn:hover {
   background: var(--accent-dark);
   transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(43, 33, 26, 0.32);
+  box-shadow: 0 14px 32px rgba(43, 33, 26, 0.34);
 }
 .float-cart-btn:active { transform: translateY(-1px) scale(0.96); }
-.float-cart-btn svg { width: 24px; height: 24px; }
+.float-cart-btn svg { width: 28px; height: 28px; }
 
 /* Gold badge — mirrors the navbar cart count, updates on every add */
 .float-cart-count {
   position: absolute;
-  top: -4px; right: -4px;
-  min-width: 22px; height: 22px;
-  padding: 0 6px;
+  top: -5px; right: -5px;
+  min-width: 24px; height: 24px;
+  padding: 0 7px;
   border-radius: 999px;
   background: var(--accent);
   color: #fff;
-  font-size: 0.76rem; font-weight: 700;
+  font-size: 0.8rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid var(--bg);
   box-shadow: 0 2px 6px rgba(59, 42, 30, 0.35);
@@ -832,9 +832,9 @@ img { max-width: 100%; display: block; }
 
 @media (max-width: 640px) {
   .float-cart-btn {
-    right: 16px;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    width: 52px; height: 52px;
+    right: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    width: 58px; height: 58px;
   }
-  .float-cart-btn svg { width: 22px; height: 22px; }
+  .float-cart-btn svg { width: 25px; height: 25px; }
 }

@@ -96,6 +96,11 @@ async function init() {
     showPosLogin();
     return;
   }
+  // Returning session (still fresh) — show the dashboard directly.
+  // Bug fix (v12): this path never called showPosApp(), so a cashier who
+  // refreshed the page was stuck behind the login overlay with the
+  // booted dashboard hidden underneath.
+  showPosApp();
   await bootPos();
 }
 
@@ -261,7 +266,8 @@ function handleRealtimeEvent(payload) {
     if (!POS_STATE.orders.find(o => o.id === newRec.id)) {
       POS_STATE.orders.unshift(newRec);
       showNewOrderPopup(newRec);
-      playNotificationSound();
+      // No one-shot sound here: renderDashboard() → _bellLoop.sync()
+      // rings immediately AND keeps ringing until the order is accepted.
     }
   } else if (eventType === 'UPDATE') {
     // Status changed
@@ -447,6 +453,32 @@ function playNotificationSound() {
 }
 
 // ----------------------------------------------------------------
+// BELL LOOP (v12) — the bell KEEPS RINGING until the cashier
+// accepts the order. It repeats every 5 seconds for as long as any
+// order is still sitting in "received" (the New Orders column), and
+// stops the moment the last one is accepted/rejected/served/deleted.
+// renderDashboard() calls sync() after every state change (realtime
+// INSERT/UPDATE/DELETE, initial load, button clicks), so this is the
+// single source of truth — no other call sites are needed.
+// ----------------------------------------------------------------
+const _bellLoop = {
+  timer: null,
+  start() {
+    if (this.timer) return;  // already ringing
+    playNotificationSound();                                   // ring immediately…
+    this.timer = setInterval(() => playNotificationSound(), 5000);  // …and keep ringing
+  },
+  stop() {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+  },
+  sync() {
+    const waiting = POS_STATE.orders.some(o => o.status === 'received');
+    if (waiting) this.start();
+    else this.stop();
+  }
+};
+
+// ----------------------------------------------------------------
 // RENDER DASHBOARD
 // ----------------------------------------------------------------
 function renderDashboard() {
@@ -494,6 +526,10 @@ function renderDashboard() {
   // Sidebar stats
   renderSidebarStats();
   renderHistory();
+
+  // Bell loop: ring while ANY order is still waiting to be accepted.
+  // Runs after realtime events, initial load and every status change.
+  _bellLoop.sync();
 
   if (window.lucide) lucide.createIcons();
 }
