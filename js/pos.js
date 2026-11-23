@@ -424,51 +424,129 @@ function replayPendingPopups() {
 }
 
 // ----------------------------------------------------------------
-// NOTIFICATION SOUND (Web Audio API beep — no asset file needed)
+// NOTIFICATION SOUND — Foodpanda-style service bell (Web Audio API,
+// no asset file needed).
+//
+// v13: ONE shared AudioContext instead of a fresh context per ring.
+// A context created before any user gesture starts 'suspended' under
+// the browser autoplay policy and plays NOTHING — that was the
+// "bell is silent on our end" bug: a session-restored POS has no
+// click, so every ring created a suspended context. We now resume()
+// on every ring AND on the first pointer/key input.
 // ----------------------------------------------------------------
-function playNotificationSound() {
-  if (!POS_STATE.soundEnabled) return;
+let _audioCtx = null;
+
+function _getAudioCtx() {
+  if (!POS_STATE.soundEnabled) return null;
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    // Three rising beeps
-    [523.25, 659.25, 783.99].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      const t = ctx.currentTime + i * 0.15;
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      osc.start(t);
-      osc.stop(t + 0.3);
-    });
+    if (!AudioCtx) return null;
+    if (!_audioCtx) _audioCtx = new AudioCtx();
+    // Autoplay policy: suspended until the user has interacted with
+    // the page. resume() is async and only sticks after a gesture —
+    // retried on every ring and by the unlock listeners below.
+    if (_audioCtx.state === 'suspended') { try { _audioCtx.resume(); } catch (e) {} }
+    return _audioCtx;
+  } catch (e) { return null; }
+}
+
+// Unlock audio on the first interaction (login click, any tap/key).
+// POS staff always interact within seconds; after this the bell is
+// audible even when the POS tab sits in the background.
+['pointerdown', 'keydown', 'touchstart'].forEach(evt => {
+  window.addEventListener(evt, () => {
+    if (_audioCtx && _audioCtx.state === 'suspended') {
+      try { _audioCtx.resume(); } catch (e) {}
+    }
+  }, { passive: true });
+});
+
+// One bell strike: bright metallic "DING" — fundamental plus
+// inharmonic partials, sharp attack, long exponential decay.
+function _bellStrike(ctx, at, baseFreq, volume) {
+  const master = ctx.createGain();
+  master.gain.value = volume;
+  master.connect(ctx.destination);
+  // Partial multiplier / peak / ring-out duration per partial
+  [[1,    1.0, 1.2],
+   [2.76, 0.4, 0.5],
+   [5.4,  0.2, 0.3]].forEach(([mult, peak, dur]) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = baseFreq * mult;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(peak, at + 0.008);  // sharp strike
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);  // ring out
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(at);
+    osc.stop(at + dur + 0.05);
+  });
+}
+
+function playNotificationSound() {
+  if (!POS_STATE.soundEnabled) return;
+  const ctx = _getAudioCtx();
+  // If the context is still suspended the ring would be silent — skip
+  // it; the unlock listener makes the next one audible.
+  if (!ctx || ctx.state !== 'running') return;
+  try {
+    // DING-DING-DING — a counter bell hit three times, Foodpanda-style
+    const now = ctx.currentTime + 0.02;
+    _bellStrike(ctx, now,         1568, 0.55);
+    _bellStrike(ctx, now + 0.42,  1568, 0.55);
+    _bellStrike(ctx, now + 0.84,  1568, 0.55);
   } catch (e) {
     // Silent fail
   }
 }
 
 // ----------------------------------------------------------------
-// BELL LOOP (v12) — the bell KEEPS RINGING until the cashier
-// accepts the order. It repeats every 5 seconds for as long as any
-// order is still sitting in "received" (the New Orders column), and
-// stops the moment the last one is accepted/rejected/served/deleted.
-// renderDashboard() calls sync() after every state change (realtime
-// INSERT/UPDATE/DELETE, initial load, button clicks), so this is the
-// single source of truth — no other call sites are needed.
+// BELL LOOP — Foodpanda behaviour: the bell KEEPS RINGING every few
+// seconds until the cashier accepts (or rejects/serves/deletes) the
+// order. renderDashboard() calls sync() after every state change
+// (realtime INSERT/UPDATE/DELETE, initial load, button clicks), so
+// this stays the single source of truth.
+//
+// v13: the timer runs inside a Web Worker. Chrome throttles page
+// timers in hidden tabs (down to once a minute after 5 minutes),
+// which could silently kill the loop while the POS is in a
+// background tab — worker timers are not throttled, so the rhythm
+// holds. Falls back to setInterval if workers are unavailable.
 // ----------------------------------------------------------------
 const _bellLoop = {
+  worker: null,
   timer: null,
+  running: false,
+  RING_MS: 4000,   // Foodpanda-style urgency: ring every 4 seconds
+  _ensureWorker() {
+    if (this.worker) return this.worker;
+    try {
+      const src = "let t=null;" +
+        "onmessage=function(e){" +
+        " if(e.data==='start'){ if(t)clearInterval(t); t=setInterval(function(){postMessage('ring');}," + this.RING_MS + "); }" +
+        " else if(e.data==='stop'){ if(t){clearInterval(t); t=null;} }" +
+        "};";
+      const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      w.onmessage = () => playNotificationSound();
+      this.worker = w;
+    } catch (e) {
+      this.worker = null;  // no worker support — setInterval fallback
+    }
+    return this.worker;
+  },
   start() {
-    if (this.timer) return;  // already ringing
-    playNotificationSound();                                   // ring immediately…
-    this.timer = setInterval(() => playNotificationSound(), 5000);  // …and keep ringing
+    if (this.running) return;               // already ringing
+    this.running = true;
+    playNotificationSound();                // ring immediately…
+    const w = this._ensureWorker();
+    if (w) w.postMessage('start');          // …and keep ringing on a worker timer
+    else this.timer = setInterval(() => playNotificationSound(), this.RING_MS);
   },
   stop() {
+    this.running = false;
+    if (this.worker) this.worker.postMessage('stop');
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
   },
   sync() {
@@ -477,6 +555,16 @@ const _bellLoop = {
     else this.stop();
   }
 };
+
+// When staff switches back to the POS tab: fresh audio unlock attempt
+// and, if the loop is running, ring right now instead of waiting for
+// the next worker tick.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (_audioCtx && _audioCtx.state === 'suspended') { try { _audioCtx.resume(); } catch (e) {} }
+    if (_bellLoop.running) playNotificationSound();
+  }
+});
 
 // ----------------------------------------------------------------
 // RENDER DASHBOARD
