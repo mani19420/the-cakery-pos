@@ -18,6 +18,8 @@ const DOM = {
   activeBadge:  document.getElementById('activeBadge'),
   cartBtn:      document.getElementById('cartBtn'),
   cartCount:    document.getElementById('cartCount'),
+  floatCartBtn: document.getElementById('floatCartBtn'),
+  floatCartCount: document.getElementById('floatCartCount'),
   cartSidebar:  document.getElementById('cartSidebar'),
   cartOverlay:  document.getElementById('cartOverlay'),
   closeCart:    document.getElementById('closeCart'),
@@ -381,6 +383,12 @@ function updateCart() {
     DOM.cartCount.textContent = totalItems;
     DOM.cartCount.classList.toggle('hidden', totalItems === 0);
   }
+  // Floating cart button (v12): keep its badge in sync too, so the
+  // count updates immediately from anywhere on the page.
+  if (DOM.floatCartCount) {
+    DOM.floatCartCount.textContent = totalItems;
+    DOM.floatCartCount.classList.toggle('hidden', totalItems === 0);
+  }
   // Keep the per-card ADD buttons in sync ("Add · 2") with the cart.
   refreshAddButtons();
   // Pass the chosen payment method so PRA uses the right rate (cash 16% / card 8%).
@@ -433,6 +441,18 @@ function animateCartIcon() {
   if (DOM.cartCount) {
     DOM.cartCount.style.transform = 'scale(1.4)';
     setTimeout(() => { DOM.cartCount.style.transform = ''; }, 200);
+  }
+  // Floating cart button (v12): replay the pop/nudge animations for
+  // immediate visual feedback on every add-to-cart.
+  if (DOM.floatCartCount && !DOM.floatCartCount.classList.contains('hidden')) {
+    DOM.floatCartCount.classList.remove('pop');
+    void DOM.floatCartCount.offsetWidth;   // force reflow so the animation restarts
+    DOM.floatCartCount.classList.add('pop');
+  }
+  if (DOM.floatCartBtn) {
+    DOM.floatCartBtn.classList.remove('nudge');
+    void DOM.floatCartBtn.offsetWidth;
+    DOM.floatCartBtn.classList.add('nudge');
   }
 }
 
@@ -819,6 +839,7 @@ function saveState() {
 function setupEventListeners() {
   // Cart open/close
   DOM.cartBtn.addEventListener('click', openCart);
+  if (DOM.floatCartBtn) DOM.floatCartBtn.addEventListener('click', openCart);
   DOM.closeCart.addEventListener('click', closeCart);
   DOM.cartOverlay.addEventListener('click', closeCart);
 
